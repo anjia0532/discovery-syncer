@@ -1,0 +1,106 @@
+logger:
+    level: debug # debug,info,error
+    logger: console # console vs file
+    log-file: syncer.log # The file name of the logger output, does not exist automatically
+    date-slice: y # Cut the document by date, support "y" (year), "m" (month), "d" (day), "h" (hour), default "y".
+discovery-servers:
+    nacos1:
+        type: nacos
+        weight: 100
+        prefix: /nacos/v1/
+        host: "http://nacos-server:8858"
+    eureka1:
+        type: eureka
+        weight: 100
+        prefix: /eureka/
+        host: "http://admin:admin@eureka-server:8761"
+
+gateway-servers:
+    apisix1:
+        type: apisix
+        admin-url: http://apisix-server:9080
+        prefix: /apisix/admin/
+        config:
+            X-API-KEY: edd1c9f034335f136f87ad84b625c8f1
+    kong1:
+        type: kong
+        admin-url: http://kong-server:8001
+        prefix: /upstreams/
+
+targets:
+    -   discovery: nacos1
+        gateway: apisix1
+        upstream-name: nacos1-example
+        service-name: test
+        enabled: false
+        fetch-interval: "@every 10s"
+        config:
+            groupName: DEFAULT_GROUP
+            namespaceId: test
+            template: |
+                {
+                    "id": "syncer-{{.Name}}",
+                    "timeout": {
+                        "connect": 30,
+                        "send": 30,
+                        "read": 30
+                    },
+                    "name": "{{.Name}}",
+                    "nodes": {{.Nodes}},
+                    "type":"roundrobin",
+                    "desc": "auto sync by https://github.com/anjia0532/discovery-syncer"
+                }
+
+    -   discovery: eureka1
+        gateway: kong1
+        upstream-name: test
+        service-name: TEST
+        enabled: false
+        fetch-interval: "@every 5s"
+        config:
+            template: |
+                {
+                    "name": "{{.Name}}",
+                    "algorithm": "round-robin",
+                    "hash_on": "none",
+                    "hash_fallback": "none",
+                    "hash_on_cookie_path": "/",
+                    "slots": 10000,
+                    "healthchecks": {
+                        "passive": {
+                            "healthy": {
+                                "http_statuses": [200, 201, 202, 203, 204, 205, 206, 207, 208, 226, 300, 301, 302, 303, 304, 305, 306, 307, 308],
+                                "successes": 0
+                            },
+                            "type": "http",
+                            "unhealthy": {
+                                "http_statuses": [429, 500, 503],
+                                "timeouts": 0,
+                                "http_failures": 0,
+                                "tcp_failures": 0
+                            }
+                        },
+                        "active": {
+                            "timeout": 1,
+                            "https_sni": "example.com",
+                            "http_path": "/",
+                            "concurrency": 10,
+                            "https_verify_certificate": true,
+                            "type": "http",
+                            "healthy": {
+                                "http_statuses": [200, 302],
+                                "successes": 0,
+                                "interval": 0
+                            },
+                            "unhealthy": {
+                                "http_statuses": [429, 404, 500, 501, 502, 503, 504, 505],
+                                "timeouts": 0,
+                                "http_failures": 0,
+                                "interval": 0,
+                                "tcp_failures": 0
+                            }
+                        },
+                        "threshold": 0
+                    },
+                    "tags": ["discovery-syncer-auto"]
+                }
