@@ -1,8 +1,13 @@
-cd /d ../cmd
-mkdir ../.build
+set mypath=%~dp0..\
+cd /d %mypath%
+
+cmd /c "del /Q .build"
+cmd /c "mkdir .build"
+
+cd /d ./cmd
 
 SET CGO_ENABLED=0
-SET GOOS=darwin
+SET GOOS=darwinwsl
 SET GOARCH=amd64
 go build -o ../.build/discovery-syncer-%GOOS%-%GOARCH%
 
@@ -17,4 +22,4 @@ SET GOARCH=amd64
 go build -o ../.build/discovery-syncer-%GOOS%-%GOARCH%
 
 
-cd ../scripts
+cd /d %mypath%
