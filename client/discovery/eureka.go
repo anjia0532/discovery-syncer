@@ -41,8 +41,6 @@ func (eurekaClient *EurekaClient) GetAllService(map[string]string) ([]dto.Servic
 	req.Header.Add("Accept", "application/json")
 	resp, err := hc.Do(req)
 
-	_ = resp.Body.Close()
-
 	if err != nil {
 		return nil, err
 	}
@@ -55,6 +53,7 @@ func (eurekaClient *EurekaClient) GetAllService(map[string]string) ([]dto.Servic
 
 	eurekaResp := EurekaAppsResp{}
 	err = json.NewDecoder(resp.Body).Decode(&eurekaResp)
+	_ = resp.Body.Close()
 
 	if err != nil {
 		return nil, err
@@ -76,8 +75,6 @@ func (eurekaClient *EurekaClient) GetServiceAllInstances(vo dto.GetInstanceVo) (
 	req.Header.Add("Accept", "application/json")
 	resp, err := hc.Do(req)
 
-	_ = resp.Body.Close()
-
 	if err != nil {
 		return nil, err
 	}
@@ -89,6 +86,8 @@ func (eurekaClient *EurekaClient) GetServiceAllInstances(vo dto.GetInstanceVo) (
 	}
 	eurekaResp := EurekaAppResp{}
 	err = json.NewDecoder(resp.Body).Decode(&eurekaResp)
+
+	_ = resp.Body.Close()
 
 	if err != nil {
 		return nil, err

@@ -78,6 +78,9 @@ func (nacosClient *NacosClient) GetServiceAllInstances(vo dto.GetInstanceVo) ([]
 	vo.ExtData["serviceName"] = vo.ServiceName
 	r := url.Values{}
 	for k, v := range vo.ExtData {
+		if k == "template" {
+			continue
+		}
 		r.Set(k, v)
 	}
 
@@ -88,8 +91,6 @@ func (nacosClient *NacosClient) GetServiceAllInstances(vo dto.GetInstanceVo) ([]
 	req.Header.Add("Accept", "application/json")
 	resp, err := hc.Do(req)
 
-	_ = resp.Body.Close()
-
 	if err != nil {
 		nacosClient.Logger.Errorf("fetch nacos service instance error:%s", uri)
 		return nil, errors.New("fetch nacos service instance error")
@@ -98,6 +99,7 @@ func (nacosClient *NacosClient) GetServiceAllInstances(vo dto.GetInstanceVo) ([]
 	nacosResp := NacosInstanceResp{}
 	err = json.NewDecoder(resp.Body).Decode(&nacosResp)
 
+	_ = resp.Body.Close()
 	if err != nil {
 		nacosClient.Logger.Errorf("fetch nacos service instance error:%s", uri)
 		return nil, errors.New("fetch nacos service instance error")

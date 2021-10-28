@@ -104,7 +104,7 @@ func CreateSyncer(config *config.Config, logger *go_logger.Logger) (syncers []Sy
 			FetchInterval:   target.FetchInterval,
 			Config:          target.Config,
 			Logger:          logger,
-			Key:             fmt.Sprintf("%s:%s:%s", target.Discovery, target.Gateway),
+			Key:             fmt.Sprintf("%s:%s", target.Discovery, target.Gateway),
 		}
 		syncers = append(syncers, syncer)
 	}
@@ -141,7 +141,7 @@ func (syncer *Syncer) Run() {
 		if isExclude {
 			continue
 		}
-
+		syncer.syncServiceInstances(service)
 	}
 	return
 }
