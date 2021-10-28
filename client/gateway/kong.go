@@ -46,10 +46,6 @@ func (kongClient *KongClient) GetServiceAllInstances(upstreamName string) ([]dto
 	req.Header.Add("Content-Type", "application/json")
 	resp, err := hc.Do(req)
 
-	defer func(Body io.ReadCloser) {
-		_ = Body.Close()
-	}(resp.Body)
-
 	if err != nil {
 		kongClient.Logger.Errorf("fetch kong upstream error,%s", uri)
 		return nil, err
@@ -61,6 +57,7 @@ func (kongClient *KongClient) GetServiceAllInstances(upstreamName string) ([]dto
 
 	kongResp := KongTargetResp{}
 	err = json.NewDecoder(resp.Body).Decode(&kongResp)
+	_ = resp.Body.Close()
 	if err != nil {
 		kongClient.Logger.Errorf("fetch kong upstream and decode json error,%s", uri, err)
 		return nil, err

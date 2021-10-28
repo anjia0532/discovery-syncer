@@ -17,7 +17,6 @@ import (
 	"errors"
 	"fmt"
 	"gopkg.in/yaml.v2"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -26,9 +25,9 @@ import (
 )
 
 var (
-	HostPatternRE   = regexp.MustCompile(`^http(s)?://[a-zA-Z0-9-_.:@%]+$`)
-	PrefixPatternRE = regexp.MustCompile(`^/[/a-zA-Z0-9-_.]+/$`)
-	NameRE          = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9\-_]*$`)
+	HostPatternRE   = regexp.MustCompile(`^http(s)?://(.*@)?[\w-._:]+$`)
+	PrefixPatternRE = regexp.MustCompile(`^/[/\w-_.]+/$`)
+	NameRE          = regexp.MustCompile(`^[\w-_.]+$`)
 )
 
 type DiscoveryType string
@@ -151,6 +150,7 @@ type Target struct {
 	Gateway        string            `yaml:"gateway,omitempty"`
 	Enabled        bool              `yaml:"enabled,omitempty"`
 	ExcludeService []string          `yaml:"exclude-service"`
+	UpstreamPrefix string            `yaml:"upstream-prefix"`
 	FetchInterval  string            `yaml:"fetch-interval,omitempty"`
 	Config         map[string]string `yaml:"config,omitempty"`
 }
@@ -212,9 +212,7 @@ func readConfig(filename string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		defer func(Body io.ReadCloser) {
-			_ = Body.Close()
-		}(resp.Body)
+		_ = resp.Body.Close()
 		return string(content), nil
 	} else {
 		_, err := os.Stat(filename)

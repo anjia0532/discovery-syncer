@@ -87,6 +87,8 @@ func (eurekaClient *EurekaClient) GetServiceAllInstances(vo dto.GetInstanceVo) (
 	eurekaResp := EurekaAppResp{}
 	err = json.NewDecoder(resp.Body).Decode(&eurekaResp)
 
+	eurekaClient.Logger.Debugf("fetch eureka service,uri:%s,%#v", uri, eurekaResp)
+
 	_ = resp.Body.Close()
 
 	if err != nil {

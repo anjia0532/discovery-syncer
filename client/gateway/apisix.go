@@ -53,10 +53,6 @@ func (apisixClient *ApisixClient) GetServiceAllInstances(upstreamName string) ([
 	req.Header.Add("X-API-KEY", apisixClient.Config.Config["X-API-KEY"])
 	resp, err := hc.Do(req)
 
-	defer func(Body io.ReadCloser) {
-		_ = Body.Close()
-	}(resp.Body)
-
 	if err != nil {
 		apisixClient.Logger.Errorf("fetch apisix upstream error,%s", uri)
 		return nil, err
@@ -64,6 +60,7 @@ func (apisixClient *ApisixClient) GetServiceAllInstances(upstreamName string) ([
 
 	apisixResp := ApisixNodeResp{}
 	err = json.NewDecoder(resp.Body).Decode(&apisixResp)
+	_ = resp.Body.Close()
 	if err != nil {
 		apisixClient.Logger.Errorf("fetch apisix upstream and decode json error,%s", uri, err)
 		return nil, err
@@ -92,7 +89,6 @@ func (apisixClient *ApisixClient) GetServiceAllInstances(upstreamName string) ([
 
 var DefaultApisixUpstreamTemplate = `
 {
-    "id": "syncer-{{.Name}}",
     "timeout": {
         "connect": 30,
         "send": 30,
@@ -122,7 +118,7 @@ func (apisixClient *ApisixClient) SyncInstances(name string, tpl string, discove
 	var body string
 	if !ok {
 		method = "PUT"
-		upstreamId = fetchAllUpstream
+		upstreamId = fetchAllUpstream + "/" + name
 		if len(tpl) == 0 {
 			tpl = DefaultApisixUpstreamTemplate
 		}
@@ -156,10 +152,6 @@ func (apisixClient *ApisixClient) SyncInstances(name string, tpl string, discove
 	req.Header.Add("X-API-KEY", apisixClient.Config.Config["X-API-KEY"])
 	resp, err := hc.Do(req)
 
-	defer func(Body io.ReadCloser) {
-		_ = Body.Close()
-	}(resp.Body)
-
 	respRawByte, _ := io.ReadAll(resp.Body)
 
 	apisixClient.Logger.Debugf("update apisix upstream uri:%s,method:%s,body:%s,resp:%s",
@@ -175,6 +167,7 @@ func (apisixClient *ApisixClient) SyncInstances(name string, tpl string, discove
 			uri, method, body, respRawByte)
 		return nil
 	}
+	_ = resp.Body.Close()
 	return err
 }
 

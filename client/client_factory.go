@@ -103,8 +103,13 @@ func CreateSyncer(config *config.Config, logger *go_logger.Logger) (syncers []Sy
 			GatewayClient:   gatewayClient,
 			FetchInterval:   target.FetchInterval,
 			Config:          target.Config,
+			UpstreamPrefix:  target.UpstreamPrefix,
 			Logger:          logger,
-			Key:             fmt.Sprintf("%s:%s", target.Discovery, target.Gateway),
+			Key:             fmt.Sprintf("%s-%s", target.Discovery, target.Gateway),
+		}
+
+		if len(syncer.UpstreamPrefix) == 0 {
+			syncer.UpstreamPrefix = target.Discovery
 		}
 		syncers = append(syncers, syncer)
 	}
@@ -120,6 +125,7 @@ type Syncer struct {
 	ExcludeService  []string
 	Key             string
 	Logger          *go_logger.Logger
+	UpstreamPrefix  string
 }
 
 func (syncer *Syncer) Run() {
@@ -145,6 +151,7 @@ func (syncer *Syncer) Run() {
 	}
 	return
 }
+
 func (syncer *Syncer) syncServiceInstances(service dto.Service) {
 	var (
 		discoveryInstances []dto.Instance
@@ -162,9 +169,10 @@ func (syncer *Syncer) syncServiceInstances(service dto.Service) {
 			panic(err)
 		}
 	}
-	gatewayInstances, err := syncer.GatewayClient.GetServiceAllInstances(service.Name)
+
+	gatewayInstances, err := syncer.GatewayClient.GetServiceAllInstances(syncer.getUpstreamName(service.Name))
 	if err != nil {
-		syncer.Logger.Errorf("fetch gateway %s failed,syncer:%+v", service.Name, syncer)
+		syncer.Logger.Errorf("fetch gateway %s failed,syncer:%+v", syncer.getUpstreamName(service.Name), syncer)
 		panic(err)
 	}
 
@@ -217,13 +225,16 @@ func (syncer *Syncer) syncServiceInstances(service dto.Service) {
 	if len(diffIns) > 0 {
 		tpl, _ := syncer.Config["template"]
 
-		err = syncer.GatewayClient.SyncInstances(service.Name, tpl, discoveryInstances, diffIns)
+		err = syncer.GatewayClient.SyncInstances(syncer.getUpstreamName(service.Name), tpl, discoveryInstances, diffIns)
 		if err != nil {
 			syncer.Logger.Errorf("update gateway %s failed,discoveryInstances:%s,diffIns:%s,syncer:%+v",
-				service.Name, discoveryInstances, diffIns, syncer)
+				syncer.getUpstreamName(service.Name), discoveryInstances, diffIns, syncer)
 			panic(err)
 		}
 	}
 
-	syncer.Logger.Infof("Sync serviceName:%s,diffIns:%+v", service.Name, diffIns)
+	syncer.Logger.Infof("Sync serviceName:%s,diffIns:%+v", syncer.getUpstreamName(service.Name), diffIns)
+}
+func (syncer *Syncer) getUpstreamName(serviceName string) string {
+	return syncer.UpstreamPrefix + "-" + serviceName
 }

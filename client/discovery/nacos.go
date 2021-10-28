@@ -48,16 +48,17 @@ func (nacosClient *NacosClient) GetAllService(data map[string]string) ([]dto.Ser
 	uri := nacosClient.Config.Host + nacosClient.Config.Prefix + "ns/service/list?" + r.Encode()
 	resp, err := http.DefaultClient.Get(uri)
 	if err != nil {
-		nacosClient.Logger.Errorf("fetch nacos service error:%name", uri)
+		nacosClient.Logger.Errorf("fetch nacos service error:%s", uri)
 		return nil, errors.New("fetch nacos service error")
 	}
 	serviceResp := &NacosServiceResp{}
 
 	err = json.NewDecoder(resp.Body).Decode(&serviceResp)
 	if err != nil {
-		nacosClient.Logger.Errorf("fetch nacos service error:%name", uri)
+		nacosClient.Logger.Errorf("fetch nacos service error:%s", uri)
 		return nil, errors.New("fetch nacos service error")
 	}
+	nacosClient.Logger.Debugf("fetch nacos service,uri:%s,%#v", uri, serviceResp)
 	services := []dto.Service{}
 	for _, name := range serviceResp.ServiceNames {
 		services = append(services, dto.Service{Name: name})
