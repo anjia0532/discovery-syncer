@@ -44,8 +44,8 @@ type Registration struct {
 	MetadataKey string            `json:"metadataKey,omitempty"`
 	Status      string            `json:"status,omitempty"`      //"UP" "DOWN"
 	OtherStatus string            `json:"otherStatus,omitempty"` //"UP" "DOWN" "ORIGIN"
-	ServiceName string            `json:"serviceName"`
-	ExtData     map[string]string `json:"extData"`
+	ServiceName string            `json:"serviceName,omitempty"`
+	ExtData     map[string]string `json:"extData,omitempty"`
 }
 
 func (c *Registration) UnmarshalJSON(data []byte) error {

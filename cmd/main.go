@@ -138,7 +138,7 @@ func discoveryHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		_, _ = fmt.Fprintf(w, err.Error())
 	} else {
-		_, _ = fmt.Fprintf(w, "Ok")
+		_, _ = fmt.Fprintf(w, "OK")
 	}
 }
 
