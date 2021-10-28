@@ -18,6 +18,8 @@ import (
 )
 
 type DiscoveryClient interface {
+	GetAllService(data map[string]string) ([]dto.Service, error)
+
 	// GetServiceAllInstances get instances by serviceName
 	GetServiceAllInstances(vo dto.GetInstanceVo) ([]dto.Instance, error)
 

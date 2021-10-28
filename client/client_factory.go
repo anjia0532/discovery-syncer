@@ -21,6 +21,7 @@ import (
 	"github.com/anjia0532/apisix-discovery-syncer/config"
 	"github.com/anjia0532/apisix-discovery-syncer/dto"
 	go_logger "github.com/phachon/go-logger"
+	"regexp"
 )
 
 func createDiscoveryClient(discoveryMap map[string]config.Discovery,
@@ -82,7 +83,7 @@ func CreateSyncer(config *config.Config, logger *go_logger.Logger) (syncers []Sy
 	var unid string
 	var syncer Syncer
 	for _, target := range config.Targets {
-		unid = fmt.Sprintf("discovery:%s,gateway:%s,upstream:%s", target.Discovery, target.Gateway, target.UpstreamName)
+		unid = fmt.Sprintf("discovery:%s,gateway:%s", target.Discovery, target.Gateway)
 		if !target.Enabled {
 			logger.Warningf("%s,not enabled", unid)
 			continue
@@ -100,12 +101,10 @@ func CreateSyncer(config *config.Config, logger *go_logger.Logger) (syncers []Sy
 		syncer = Syncer{
 			DiscoveryClient: discoveryClient,
 			GatewayClient:   gatewayClient,
-			ServiceName:     target.ServiceName,
 			FetchInterval:   target.FetchInterval,
-			UpstreamName:    target.UpstreamName,
 			Config:          target.Config,
 			Logger:          logger,
-			Key:             fmt.Sprintf("%s:%s:%s", target.Discovery, target.Gateway, target.UpstreamName),
+			Key:             fmt.Sprintf("%s:%s:%s", target.Discovery, target.Gateway),
 		}
 		syncers = append(syncers, syncer)
 	}
@@ -116,26 +115,56 @@ func CreateSyncer(config *config.Config, logger *go_logger.Logger) (syncers []Sy
 type Syncer struct {
 	DiscoveryClient discovery.DiscoveryClient
 	GatewayClient   gateway.GatewayClient
-	ServiceName     string
 	FetchInterval   string
-	UpstreamName    string
 	Config          map[string]string
+	ExcludeService  []string
 	Key             string
 	Logger          *go_logger.Logger
 }
 
 func (syncer *Syncer) Run() {
 
-	vo := dto.GetInstanceVo{ServiceName: syncer.ServiceName, ExtData: syncer.Config}
-	discoveryInstances, err := syncer.DiscoveryClient.GetServiceAllInstances(vo)
-	syncer.Logger.Debugf("Sync upstreamName:%s,serviceName:%s", syncer.UpstreamName, syncer.ServiceName)
+	services, err := syncer.DiscoveryClient.GetAllService(syncer.Config)
 	if err != nil {
-		syncer.Logger.Errorf("fetch discovery %s failed,syncer:%+v", syncer.ServiceName, syncer)
+		syncer.Logger.Errorf("fetch discovery services failed,syncer:%+v", syncer)
 		panic(err)
 	}
-	gatewayInstances, err := syncer.GatewayClient.GetServiceAllInstances(syncer.UpstreamName)
+	var isExclude bool
+	for _, service := range services {
+		isExclude = false
+		for _, name := range syncer.ExcludeService {
+			if regexp.MustCompile(name).MatchString(service.Name) {
+				isExclude = true
+				break
+			}
+		}
+		if isExclude {
+			continue
+		}
+
+	}
+	return
+}
+func (syncer *Syncer) syncServiceInstances(service dto.Service) {
+	var (
+		discoveryInstances []dto.Instance
+		err                error
+	)
+	if len(service.Instances) > 0 {
+		discoveryInstances = service.Instances
+	} else {
+		vo := dto.GetInstanceVo{ServiceName: service.Name, ExtData: syncer.Config}
+		discoveryInstances, err = syncer.DiscoveryClient.GetServiceAllInstances(vo)
+
+		syncer.Logger.Debugf("Sync serviceName:%s", service.Name)
+		if err != nil {
+			syncer.Logger.Errorf("fetch discovery %s failed,syncer:%+v", service.Name, syncer)
+			panic(err)
+		}
+	}
+	gatewayInstances, err := syncer.GatewayClient.GetServiceAllInstances(service.Name)
 	if err != nil {
-		syncer.Logger.Errorf("fetch gateway %s failed,syncer:%+v", syncer.ServiceName, syncer)
+		syncer.Logger.Errorf("fetch gateway %s failed,syncer:%+v", service.Name, syncer)
 		panic(err)
 	}
 
@@ -188,15 +217,13 @@ func (syncer *Syncer) Run() {
 	if len(diffIns) > 0 {
 		tpl, _ := syncer.Config["template"]
 
-		err = syncer.GatewayClient.SyncInstances(syncer.UpstreamName, tpl, discoveryInstances, diffIns)
+		err = syncer.GatewayClient.SyncInstances(service.Name, tpl, discoveryInstances, diffIns)
 		if err != nil {
 			syncer.Logger.Errorf("update gateway %s failed,discoveryInstances:%s,diffIns:%s,syncer:%+v",
-				syncer.ServiceName, discoveryInstances, diffIns, syncer)
+				service.Name, discoveryInstances, diffIns, syncer)
 			panic(err)
 		}
 	}
 
-	syncer.Logger.Infof("Sync upstreamName:%s,serviceName:%s,diffIns:%+v", syncer.UpstreamName,
-		syncer.ServiceName, diffIns)
-	return
+	syncer.Logger.Infof("Sync serviceName:%s,diffIns:%+v", service.Name, diffIns)
 }

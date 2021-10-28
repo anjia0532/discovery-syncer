@@ -147,13 +147,12 @@ func (c *Gateway) UnmarshalYAML(unmarshal func(interface{}) error) error {
 }
 
 type Target struct {
-	Discovery     string            `yaml:"discovery,omitempty"`
-	Gateway       string            `yaml:"gateway,omitempty"`
-	UpstreamName  string            `yaml:"upstream-name,omitempty"`
-	ServiceName   string            `yaml:"service-name,omitempty"`
-	Enabled       bool              `yaml:"enabled,omitempty"`
-	FetchInterval string            `yaml:"fetch-interval,omitempty"`
-	Config        map[string]string `yaml:"config,omitempty"`
+	Discovery      string            `yaml:"discovery,omitempty"`
+	Gateway        string            `yaml:"gateway,omitempty"`
+	Enabled        bool              `yaml:"enabled,omitempty"`
+	ExcludeService []string          `yaml:"exclude-service"`
+	FetchInterval  string            `yaml:"fetch-interval,omitempty"`
+	Config         map[string]string `yaml:"config,omitempty"`
 }
 
 func (c *Target) UnmarshalYAML(unmarshal func(interface{}) error) error {
@@ -169,12 +168,6 @@ func (c *Target) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	}
 	if !NameRE.MatchString(c.Gateway) {
 		return errors.New("invalid gateway name")
-	}
-	if !NameRE.MatchString(c.UpstreamName) {
-		return errors.New("invalid upstream name")
-	}
-	if !NameRE.MatchString(c.ServiceName) {
-		return errors.New("invalid service name")
 	}
 
 	return nil

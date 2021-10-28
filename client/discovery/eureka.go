@@ -19,7 +19,6 @@ import (
 	"github.com/anjia0532/apisix-discovery-syncer/config"
 	"github.com/anjia0532/apisix-discovery-syncer/dto"
 	go_logger "github.com/phachon/go-logger"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"regexp"
@@ -34,6 +33,41 @@ type EurekaClient struct {
 
 var HostPageRE = regexp.MustCompile(`^https?://(?P<Ip>[\w.]+):(?P<Port>\d+)/?$`)
 
+func (eurekaClient *EurekaClient) GetAllService(map[string]string) ([]dto.Service, error) {
+	uri := eurekaClient.Config.Host + eurekaClient.Config.Prefix + "apps/"
+	hc := &http.Client{}
+
+	req, _ := http.NewRequest("GET", uri, nil)
+	req.Header.Add("Accept", "application/json")
+	resp, err := hc.Do(req)
+
+	_ = resp.Body.Close()
+
+	if err != nil {
+		return nil, err
+	}
+	if 404 == resp.StatusCode {
+		return []dto.Service{}, nil
+	} else if 200 != resp.StatusCode {
+		eurekaClient.Logger.Errorf("fetch eureka service error:%s", uri)
+		return nil, errors.New("fetch eureka service error")
+	}
+
+	eurekaResp := EurekaAppsResp{}
+	err = json.NewDecoder(resp.Body).Decode(&eurekaResp)
+
+	if err != nil {
+		return nil, err
+	}
+	services := []dto.Service{}
+	for _, app := range eurekaResp.Applications.Application {
+
+		services = append(services, dto.Service{Name: app.Name,
+			Instances: convertEurekaInstance(app.Instance, eurekaClient.Config.Weight)})
+	}
+	return services, nil
+}
+
 func (eurekaClient *EurekaClient) GetServiceAllInstances(vo dto.GetInstanceVo) ([]dto.Instance, error) {
 	uri := eurekaClient.Config.Host + eurekaClient.Config.Prefix + "apps/" + vo.ServiceName
 	hc := &http.Client{}
@@ -42,9 +76,7 @@ func (eurekaClient *EurekaClient) GetServiceAllInstances(vo dto.GetInstanceVo) (
 	req.Header.Add("Accept", "application/json")
 	resp, err := hc.Do(req)
 
-	defer func(Body io.ReadCloser) {
-		_ = Body.Close()
-	}(resp.Body)
+	_ = resp.Body.Close()
 
 	if err != nil {
 		return nil, err
@@ -52,8 +84,8 @@ func (eurekaClient *EurekaClient) GetServiceAllInstances(vo dto.GetInstanceVo) (
 	if 404 == resp.StatusCode {
 		return []dto.Instance{}, nil
 	} else if 200 != resp.StatusCode {
-		eurekaClient.Logger.Errorf("fetch eureka service error:%s", uri)
-		return nil, errors.New("fetch eureka service error")
+		eurekaClient.Logger.Errorf("fetch eureka service instance error:%s", uri)
+		return nil, errors.New("fetch eureka service instance error")
 	}
 	eurekaResp := EurekaAppResp{}
 	err = json.NewDecoder(resp.Body).Decode(&eurekaResp)
@@ -62,9 +94,18 @@ func (eurekaClient *EurekaClient) GetServiceAllInstances(vo dto.GetInstanceVo) (
 		return nil, err
 	}
 
-	instances := []dto.Instance{}
+	instances := convertEurekaInstance(eurekaResp.Application.Instance, eurekaClient.Config.Weight)
+	eurekaClient.Logger.Debugf("fetch eureka service:%s,instances:%+v", uri, instances)
+	return instances, nil
+}
 
-	for _, eurekaIns := range eurekaResp.Application.Instance {
+func convertEurekaInstance(eurekaApps []EurekaInstance, defaultWeight float32) []dto.Instance {
+
+	instances := []dto.Instance{}
+	if len(eurekaApps) == 0 {
+		return instances
+	}
+	for _, eurekaIns := range eurekaApps {
 		if "UP" != eurekaIns.Status {
 			continue
 		}
@@ -72,15 +113,13 @@ func (eurekaClient *EurekaClient) GetServiceAllInstances(vo dto.GetInstanceVo) (
 
 		port, _ := strconv.Atoi(matches[HostPageRE.SubexpIndex("Port")])
 		instance := dto.Instance{Ip: matches[HostPageRE.SubexpIndex("Ip")], Port: port,
-			Metadata: eurekaIns.Metadata, Weight: eurekaClient.Config.Weight,
+			Metadata: eurekaIns.Metadata, Weight: defaultWeight,
 			Ext: map[string]string{"instanceId": eurekaIns.InstanceId}}
 
 		instances = append(instances, instance)
 	}
-	eurekaClient.Logger.Debugf("fetch eureka service:%s,instances:%+v", uri, instances)
-	return instances, nil
+	return instances
 }
-
 func (eurekaClient *EurekaClient) ModifyRegistration(registration dto.Registration, instances []dto.Instance) error {
 	for _, instance := range instances {
 		if !instance.Change {
@@ -113,10 +152,17 @@ func (eurekaClient *EurekaClient) ModifyRegistration(registration dto.Registrati
 	return nil
 }
 
+type EurekaAppsResp struct {
+	Applications EurekaApps `json:"applications"`
+}
+type EurekaApps struct {
+	Application []EurekaApp `json:"application"`
+}
 type EurekaAppResp struct {
 	Application EurekaApp `json:"application"`
 }
 type EurekaApp struct {
+	Name     string           `json:"name"`
 	Instance []EurekaInstance `json:"instance"`
 }
 type EurekaInstance struct {

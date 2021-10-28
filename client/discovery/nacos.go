@@ -20,7 +20,6 @@ import (
 	"github.com/anjia0532/apisix-discovery-syncer/config"
 	"github.com/anjia0532/apisix-discovery-syncer/dto"
 	go_logger "github.com/phachon/go-logger"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -33,6 +32,48 @@ type NacosClient struct {
 	Logger *go_logger.Logger
 }
 
+func (nacosClient *NacosClient) GetAllService(data map[string]string) ([]dto.Service, error) {
+	// /nacos/v1/ns/service/list?pageNo=0&pageSize=100&groupName=&namespaceId=
+	data = getDefaultMap(data, map[string]string{
+		"pageNo":      "0",
+		"pageSize":    "1000000",
+		"groupName":   "DEFAULT_GROUP",
+		"namespaceId": "",
+	})
+	r := url.Values{}
+	for k, v := range data {
+		r.Set(k, v)
+	}
+
+	uri := nacosClient.Config.Host + nacosClient.Config.Prefix + "ns/service/list?" + r.Encode()
+	resp, err := http.DefaultClient.Get(uri)
+	if err != nil {
+		nacosClient.Logger.Errorf("fetch nacos service error:%name", uri)
+		return nil, errors.New("fetch nacos service error")
+	}
+	serviceResp := &NacosServiceResp{}
+
+	err = json.NewDecoder(resp.Body).Decode(&serviceResp)
+	if err != nil {
+		nacosClient.Logger.Errorf("fetch nacos service error:%name", uri)
+		return nil, errors.New("fetch nacos service error")
+	}
+	services := []dto.Service{}
+	for _, name := range serviceResp.ServiceNames {
+		services = append(services, dto.Service{Name: name})
+	}
+	return services, nil
+}
+
+func getDefaultMap(data map[string]string, defaultMap map[string]string) map[string]string {
+	for key, val := range defaultMap {
+		_, ok := data[key]
+		if !ok {
+			data[key] = val
+		}
+	}
+	return data
+}
 func (nacosClient *NacosClient) GetServiceAllInstances(vo dto.GetInstanceVo) ([]dto.Instance, error) {
 	vo.ExtData["serviceName"] = vo.ServiceName
 	r := url.Values{}
@@ -47,21 +88,19 @@ func (nacosClient *NacosClient) GetServiceAllInstances(vo dto.GetInstanceVo) ([]
 	req.Header.Add("Accept", "application/json")
 	resp, err := hc.Do(req)
 
-	defer func(Body io.ReadCloser) {
-		_ = Body.Close()
-	}(resp.Body)
+	_ = resp.Body.Close()
 
 	if err != nil {
-		nacosClient.Logger.Errorf("fetch nacos service error:%s", uri)
-		return nil, errors.New("fetch nacos service error")
+		nacosClient.Logger.Errorf("fetch nacos service instance error:%s", uri)
+		return nil, errors.New("fetch nacos service instance error")
 	}
 
 	nacosResp := NacosInstanceResp{}
 	err = json.NewDecoder(resp.Body).Decode(&nacosResp)
 
 	if err != nil {
-		nacosClient.Logger.Errorf("fetch nacos service error:%s", uri)
-		return nil, errors.New("fetch nacos service error")
+		nacosClient.Logger.Errorf("fetch nacos service instance error:%s", uri)
+		return nil, errors.New("fetch nacos service instance error")
 	}
 	nacosClient.Logger.Debugf("fetch nacos service:%s,instances:%+v", uri, nacosResp.Hosts)
 	instances := []dto.Instance{}
@@ -143,4 +182,8 @@ type Instance struct {
 	ClusterName string            `json:"clusterName,omitempty"`
 	GroupName   string            `json:"groupName,omitempty"`
 	ServiceName string            `json:"serviceName,omitempty"`
+}
+type NacosServiceResp struct {
+	ServiceNames []string `json:"doms"`
+	Total        int      `json:"count"`
 }

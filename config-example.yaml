@@ -3,6 +3,7 @@ logger:
     logger: console # console vs file
     log-file: syncer.log # The file name of the logger output, does not exist automatically
     date-slice: y # Cut the document by date, support "y" (year), "m" (month), "d" (day), "h" (hour), default "y".
+
 discovery-servers:
     nacos1:
         type: nacos
@@ -30,8 +31,6 @@ gateway-servers:
 targets:
     -   discovery: nacos1
         gateway: apisix1
-        upstream-name: nacos1-example
-        service-name: test
         enabled: false
         fetch-interval: "@every 10s"
         config:
@@ -53,8 +52,6 @@ targets:
 
     -   discovery: eureka1
         gateway: kong1
-        upstream-name: test
-        service-name: TEST
         enabled: false
         fetch-interval: "@every 5s"
         config:

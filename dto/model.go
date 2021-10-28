@@ -18,6 +18,11 @@ import (
 	"strings"
 )
 
+type Service struct {
+	Name      string
+	Instances []Instance
+}
+
 type Instance struct {
 	Port     int               `json:"port"`
 	Ip       string            `json:"ip"`
