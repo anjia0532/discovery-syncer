@@ -52,6 +52,7 @@ func main() {
 	r := mux.NewRouter()
 	r.Handle("/", http.HandlerFunc(indexHandler))
 	r.HandleFunc("/-/reload", reloadHandler)
+	r.HandleFunc("/health", healthHandler)
 	r.HandleFunc("/discovery/{name}", discoveryHandler)
 
 	srv := http.Server{
@@ -81,6 +82,46 @@ func main() {
 		log.Fatalf("server not gracefully shutdown, err :%v\n", err)
 	}
 	<-processed
+}
+
+type healthResp struct {
+	Total   int      `json:"total"`
+	Running int      `json:"running"`
+	Lost    int      `json:"lost"`
+	Status  string   `json:"status"`
+	Details []string `json:"details"`
+}
+
+func healthHandler(w http.ResponseWriter, _ *http.Request) {
+	healthMap := client.GetHealthMap()
+	healthResp := healthResp{Total: len(syncers), Running: 0, Lost: 0, Status: "OK"}
+	for _, syncer := range syncers {
+		if time.Now().Unix()-healthMap[syncer.Key] > syncer.MaximumIntervalSec {
+			healthResp.Lost += 1
+			healthResp.Details = append(healthResp.Details,
+				fmt.Sprintf("syncer:%s,Not running for more than %d sec", syncer.Key,
+					time.Now().Unix()-healthMap[syncer.Key]))
+		} else {
+			healthResp.Running += 1
+			healthResp.Details = append(healthResp.Details, fmt.Sprintf("syncer:%s,is ok", syncer.Key))
+		}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if healthResp.Running == len(syncers) {
+		w.WriteHeader(http.StatusOK)
+		healthResp.Status = "OK"
+	} else if healthResp.Running == 0 && healthResp.Lost > 0 {
+		w.WriteHeader(http.StatusInternalServerError)
+		healthResp.Status = "DOWN"
+	} else if healthResp.Running > 0 && healthResp.Lost > 0 {
+		w.WriteHeader(http.StatusOK)
+		healthResp.Status = "WARN"
+	}
+	data, err := json.Marshal(healthResp)
+	if err != nil {
+		log.Fatal(err)
+	}
+	_, _ = fmt.Fprintf(w, "%s", data)
 }
 
 func discoveryHandler(w http.ResponseWriter, r *http.Request) {
@@ -154,6 +195,7 @@ var (
 	job      = cron.New()
 	logger   = go_logger.NewLogger()
 	flagsMap = map[string]string{}
+	syncers  []client.Syncer
 )
 
 func run() int {
@@ -180,7 +222,7 @@ func run() int {
 	logger.Info("load configuration")
 
 	// get syncers
-	syncers, err := client.CreateSyncer(cfg, logger)
+	syncers, err = client.CreateSyncer(cfg, logger)
 	if err != nil {
 		return 0
 	}

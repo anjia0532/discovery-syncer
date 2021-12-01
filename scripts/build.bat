@@ -7,7 +7,7 @@ cmd /c "mkdir .build"
 cd /d ./cmd
 
 SET CGO_ENABLED=0
-SET GOOS=darwinwsl
+SET GOOS=darwin
 SET GOARCH=amd64
 go build -o ../.build/discovery-syncer-%GOOS%-%GOARCH%
 

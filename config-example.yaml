@@ -33,6 +33,7 @@ targets:
         gateway: apisix1
         enabled: false
         fetch-interval: "@every 10s"
+        maximum-interval-sec: 20
         config:
             groupName: DEFAULT_GROUP
             namespaceId: test
@@ -54,6 +55,7 @@ targets:
         gateway: kong1
         enabled: false
         fetch-interval: "@every 5s"
+        maximum-interval-sec: 10
         config:
             template: |
                 {

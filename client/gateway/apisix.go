@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"text/template"
 )
 
@@ -32,11 +33,13 @@ type ApisixClient struct {
 	Config        config.Gateway
 	UpstreamIdMap map[string]string
 	Logger        *go_logger.Logger
+	mutex         sync.Mutex
 }
 
 var fetchAllUpstream = "upstreams"
 
 func (apisixClient *ApisixClient) GetServiceAllInstances(upstreamName string) ([]dto.Instance, error) {
+	apisixClient.mutex.Lock()
 	if apisixClient.UpstreamIdMap == nil {
 		apisixClient.UpstreamIdMap = make(map[string]string)
 	}
@@ -82,7 +85,7 @@ func (apisixClient *ApisixClient) GetServiceAllInstances(upstreamName string) ([
 			instances = append(instances, instance)
 		}
 	}
-
+	apisixClient.mutex.Unlock()
 	apisixClient.Logger.Debugf("fetch apisix upstream:%s,instances:%+v", uri, instances)
 	return instances, nil
 }

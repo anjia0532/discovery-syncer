@@ -22,6 +22,7 @@ import (
 	"github.com/anjia0532/apisix-discovery-syncer/dto"
 	go_logger "github.com/phachon/go-logger"
 	"regexp"
+	"time"
 )
 
 func createDiscoveryClient(discoveryMap map[string]config.Discovery,
@@ -69,11 +70,16 @@ func createGatewayClient(gatewayMap map[string]config.Gateway,
 var (
 	discoveryClientMap map[string]discovery.DiscoveryClient
 	gatewayClientMap   map[string]gateway.GatewayClient
+	healthMap          = make(map[string]int64)
 )
 
 func GetDiscoveryClient(name string) (discovery.DiscoveryClient, bool) {
 	client, ok := discoveryClientMap[name]
 	return client, ok
+}
+
+func GetHealthMap() map[string]int64 {
+	return healthMap
 }
 
 func CreateSyncer(config *config.Config, logger *go_logger.Logger) (syncers []Syncer, err error) {
@@ -99,33 +105,36 @@ func CreateSyncer(config *config.Config, logger *go_logger.Logger) (syncers []Sy
 			continue
 		}
 		syncer = Syncer{
-			DiscoveryClient: discoveryClient,
-			GatewayClient:   gatewayClient,
-			FetchInterval:   target.FetchInterval,
-			Config:          target.Config,
-			UpstreamPrefix:  target.UpstreamPrefix,
-			Logger:          logger,
-			Key:             fmt.Sprintf("%s-%s", target.Discovery, target.Gateway),
+			DiscoveryClient:    discoveryClient,
+			GatewayClient:      gatewayClient,
+			FetchInterval:      target.FetchInterval,
+			MaximumIntervalSec: target.MaximumIntervalSec,
+			Config:             target.Config,
+			UpstreamPrefix:     target.UpstreamPrefix,
+			Logger:             logger,
+			Key:                target.Name,
 		}
-
 		if len(syncer.UpstreamPrefix) == 0 {
 			syncer.UpstreamPrefix = target.Discovery
 		}
 		syncers = append(syncers, syncer)
+
+		healthMap[syncer.Key] = time.Now().Unix()
 	}
 
 	return
 }
 
 type Syncer struct {
-	DiscoveryClient discovery.DiscoveryClient
-	GatewayClient   gateway.GatewayClient
-	FetchInterval   string
-	Config          map[string]string
-	ExcludeService  []string
-	Key             string
-	Logger          *go_logger.Logger
-	UpstreamPrefix  string
+	DiscoveryClient    discovery.DiscoveryClient
+	GatewayClient      gateway.GatewayClient
+	FetchInterval      string
+	Config             map[string]string
+	ExcludeService     []string
+	Key                string
+	Logger             *go_logger.Logger
+	UpstreamPrefix     string
+	MaximumIntervalSec int64
 }
 
 func (syncer *Syncer) Run() {
@@ -149,6 +158,8 @@ func (syncer *Syncer) Run() {
 		}
 		syncer.syncServiceInstances(service)
 	}
+
+	healthMap[syncer.Key] = time.Now().Unix()
 	return
 }
 

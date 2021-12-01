@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"text/template"
 )
 
@@ -32,9 +33,11 @@ type KongClient struct {
 	Config        config.Gateway
 	Logger        *go_logger.Logger
 	UpstreamIdMap map[string]int
+	mutex         sync.Mutex
 }
 
 func (kongClient *KongClient) GetServiceAllInstances(upstreamName string) ([]dto.Instance, error) {
+	kongClient.mutex.Lock()
 	if len(kongClient.UpstreamIdMap) == 0 {
 		kongClient.UpstreamIdMap = make(map[string]int)
 	}
@@ -69,6 +72,7 @@ func (kongClient *KongClient) GetServiceAllInstances(upstreamName string) ([]dto
 		port, _ := strconv.Atoi(parts[1])
 		instances = append(instances, dto.Instance{Weight: target.Weight, Ip: parts[0], Port: port})
 	}
+	kongClient.mutex.Unlock()
 	return instances, nil
 }
 

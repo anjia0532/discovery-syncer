@@ -146,17 +146,19 @@ func (c *Gateway) UnmarshalYAML(unmarshal func(interface{}) error) error {
 }
 
 type Target struct {
-	Discovery      string            `yaml:"discovery,omitempty"`
-	Gateway        string            `yaml:"gateway,omitempty"`
-	Enabled        bool              `yaml:"enabled,omitempty"`
-	ExcludeService []string          `yaml:"exclude-service"`
-	UpstreamPrefix string            `yaml:"upstream-prefix"`
-	FetchInterval  string            `yaml:"fetch-interval,omitempty"`
-	Config         map[string]string `yaml:"config,omitempty"`
+	Discovery          string            `yaml:"discovery,omitempty"`
+	Gateway            string            `yaml:"gateway,omitempty"`
+	Name               string            `yaml:"name,omitempty"`
+	Enabled            bool              `yaml:"enabled,omitempty"`
+	ExcludeService     []string          `yaml:"exclude-service"`
+	UpstreamPrefix     string            `yaml:"upstream-prefix"`
+	FetchInterval      string            `yaml:"fetch-interval,omitempty"`
+	MaximumIntervalSec int64             `yaml:"maximum-interval-sec,omitempty"`
+	Config             map[string]string `yaml:"config,omitempty"`
 }
 
 func (c *Target) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	*c = Target{Enabled: false, FetchInterval: "@every 10s"}
+	*c = Target{Enabled: false, FetchInterval: "@every 10s", MaximumIntervalSec: 10}
 
 	type plain Target
 	if err := unmarshal((*plain)(c)); err != nil {
@@ -168,6 +170,12 @@ func (c *Target) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	}
 	if !NameRE.MatchString(c.Gateway) {
 		return errors.New("invalid gateway name")
+	}
+	if c.MaximumIntervalSec <= 0 {
+		c.MaximumIntervalSec = 10
+	}
+	if len(c.Name) == 0 {
+		c.Name = fmt.Sprintf("%s-%s", c.Discovery, c.Gateway)
 	}
 
 	return nil
