@@ -111,6 +111,7 @@ func CreateSyncer(config *config.Config, logger *go_logger.Logger) (syncers []Sy
 			MaximumIntervalSec: target.MaximumIntervalSec,
 			Config:             target.Config,
 			UpstreamPrefix:     target.UpstreamPrefix,
+			ExcludeService:     target.ExcludeService,
 			Logger:             logger,
 			Key:                target.Name,
 		}
