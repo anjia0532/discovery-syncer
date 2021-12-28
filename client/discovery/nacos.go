@@ -55,6 +55,7 @@ func (nacosClient *NacosClient) GetAllService(data map[string]string) ([]dto.Ser
 	serviceResp := &NacosServiceResp{}
 
 	err = json.NewDecoder(resp.Body).Decode(&serviceResp)
+	_ = resp.Body.Close()
 	if err != nil {
 		nacosClient.Logger.Errorf("fetch nacos service error:%s", uri)
 		return nil, errors.New("fetch nacos service error")
