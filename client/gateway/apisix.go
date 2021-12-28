@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"sync"
 	"text/template"
+	"time"
 )
 
 type ApisixClient struct {
@@ -47,7 +48,7 @@ func (apisixClient *ApisixClient) GetServiceAllInstances(upstreamName string) ([
 	}
 
 	uri := apisixClient.Config.AdminUrl + apisixClient.Config.Prefix + upstreamId
-	hc := &http.Client{}
+	hc := &http.Client{Timeout: 30 * time.Second}
 
 	req, _ := http.NewRequest("GET", uri, nil)
 	req.Header.Add("Accept", "application/json")
@@ -145,7 +146,7 @@ func (apisixClient *ApisixClient) SyncInstances(name string, tpl string, discove
 	}
 
 	uri := apisixClient.Config.AdminUrl + apisixClient.Config.Prefix + upstreamId
-	hc := &http.Client{}
+	hc := &http.Client{Timeout: 30 * time.Second}
 
 	req, _ := http.NewRequest(method, uri, bytes.NewBufferString(body))
 

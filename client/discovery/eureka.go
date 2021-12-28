@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
+	"time"
 )
 
 type EurekaClient struct {
@@ -35,7 +36,7 @@ var HostPageRE = regexp.MustCompile(`^https?://(?P<Ip>[\w.]+):(?P<Port>\d+)/?$`)
 
 func (eurekaClient *EurekaClient) GetAllService(map[string]string) ([]dto.Service, error) {
 	uri := eurekaClient.Config.Host + eurekaClient.Config.Prefix + "apps/"
-	hc := &http.Client{}
+	hc := &http.Client{Timeout: 30 * time.Second}
 
 	req, _ := http.NewRequest("GET", uri, nil)
 	req.Header.Add("Accept", "application/json")
@@ -69,7 +70,7 @@ func (eurekaClient *EurekaClient) GetAllService(map[string]string) ([]dto.Servic
 
 func (eurekaClient *EurekaClient) GetServiceAllInstances(vo dto.GetInstanceVo) ([]dto.Instance, error) {
 	uri := eurekaClient.Config.Host + eurekaClient.Config.Prefix + "apps/" + vo.ServiceName
-	hc := &http.Client{}
+	hc := &http.Client{Timeout: 30 * time.Second}
 
 	req, _ := http.NewRequest("GET", uri, nil)
 	req.Header.Add("Accept", "application/json")
@@ -135,7 +136,7 @@ func (eurekaClient *EurekaClient) ModifyRegistration(registration dto.Registrati
 		// PUT /eureka/v2/apps/appID/instanceID/status?value=OUT_OF_SERVICE
 		uri := eurekaClient.Config.Host + eurekaClient.Config.Prefix + "apps/" + registration.ServiceName + "/" +
 			instance.Ext["instanceId"] + "/status/?value=" + status
-		hc := &http.Client{}
+		hc := &http.Client{Timeout: 30 * time.Second}
 
 		req, _ := http.NewRequest("PUT", uri, nil)
 		req.Header.Add("Accept", "application/json")

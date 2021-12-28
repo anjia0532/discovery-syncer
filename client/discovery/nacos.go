@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"time"
 )
 
 type NacosClient struct {
@@ -86,7 +87,7 @@ func (nacosClient *NacosClient) GetServiceAllInstances(vo dto.GetInstanceVo) ([]
 	}
 
 	uri := nacosClient.Config.Host + nacosClient.Config.Prefix + "ns/instance/list?" + r.Encode()
-	hc := &http.Client{}
+	hc := &http.Client{Timeout: 30 * time.Second}
 
 	req, _ := http.NewRequest("GET", uri, nil)
 	req.Header.Add("Accept", "application/json")
@@ -151,7 +152,7 @@ func (nacosClient *NacosClient) ModifyRegistration(registration dto.Registration
 		r.Set("metadata", string(metadata))
 
 		uri := nacosClient.Config.Host + nacosClient.Config.Prefix + "ns/instance?" + r.Encode()
-		hc := &http.Client{}
+		hc := &http.Client{Timeout: 30 * time.Second}
 
 		req, _ := http.NewRequest("PUT", uri, nil)
 		req.Header.Add("Accept", "application/json")

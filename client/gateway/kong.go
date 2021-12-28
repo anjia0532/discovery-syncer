@@ -26,6 +26,7 @@ import (
 	"strings"
 	"sync"
 	"text/template"
+	"time"
 )
 
 type KongClient struct {
@@ -42,7 +43,7 @@ func (kongClient *KongClient) GetServiceAllInstances(upstreamName string) ([]dto
 		kongClient.UpstreamIdMap = make(map[string]int)
 	}
 	uri := kongClient.Config.AdminUrl + kongClient.Config.Prefix + upstreamName + "/targets/all/"
-	hc := &http.Client{}
+	hc := &http.Client{Timeout: 30 * time.Second}
 
 	req, _ := http.NewRequest("GET", uri, nil)
 	req.Header.Add("Accept", "application/json")
@@ -101,7 +102,7 @@ func (kongClient *KongClient) SyncInstances(name string, tpl string, discoveryIn
 		body string
 	)
 	uri := kongClient.Config.AdminUrl + kongClient.Config.Prefix + name
-	hc := &http.Client{}
+	hc := &http.Client{Timeout: 30 * time.Second}
 
 	// added new upstream
 	if kongClient.UpstreamIdMap[name] == 404 {
