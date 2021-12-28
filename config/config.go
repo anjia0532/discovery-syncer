@@ -46,6 +46,7 @@ type Config struct {
 	DiscoveryServers map[string]Discovery `yaml:"discovery-servers,omitempty"`
 	GatewayServers   map[string]Gateway   `yaml:"gateway-servers,omitempty"`
 	Targets          []Target             `yaml:"targets,omitempty"`
+	EnablePprof      bool                 `yaml:"enable-pprof,omitempty"`
 }
 type Logger struct {
 	Level     string `yaml:"level"`

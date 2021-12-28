@@ -26,6 +26,7 @@ import (
 	"gopkg.in/alecthomas/kingpin.v2"
 	"log"
 	"net/http"
+	"net/http/pprof"
 	"os"
 	"os/signal"
 	"regexp"
@@ -48,12 +49,21 @@ func main() {
 	flagsMap["web.listen-address"] = *listenAddress
 	flagsMap["config.file"] = *configFile
 
+	cfg, err := config.LoadFile(flagsMap["config.file"])
+
 	processed := make(chan struct{})
 	r := mux.NewRouter()
 	r.Handle("/", http.HandlerFunc(indexHandler))
 	r.HandleFunc("/-/reload", reloadHandler)
 	r.HandleFunc("/health", healthHandler)
 	r.HandleFunc("/discovery/{name}", discoveryHandler)
+
+	if err == nil {
+		// default is false
+		if cfg.EnablePprof {
+			r.PathPrefix("/debug/pprof/").HandlerFunc(pprof.Index)
+		}
+	}
 
 	srv := http.Server{
 		Addr:    flagsMap["web.listen-address"],
@@ -77,7 +87,7 @@ func main() {
 
 		close(processed)
 	}()
-	err := srv.ListenAndServe()
+	err = srv.ListenAndServe()
 	if http.ErrServerClosed != err {
 		log.Fatalf("server not gracefully shutdown, err :%v\n", err)
 	}
