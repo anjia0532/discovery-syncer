@@ -20,6 +20,7 @@ import (
 	"github.com/anjia0532/apisix-discovery-syncer/config"
 	"github.com/anjia0532/apisix-discovery-syncer/dto"
 	go_logger "github.com/phachon/go-logger"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -55,6 +56,7 @@ func (nacosClient *NacosClient) GetAllService(data map[string]string) ([]dto.Ser
 	serviceResp := &NacosServiceResp{}
 
 	err = json.NewDecoder(resp.Body).Decode(&serviceResp)
+	_, _ = io.Copy(ioutil.Discard, resp.Body)
 	_ = resp.Body.Close()
 	if err != nil {
 		nacosClient.Logger.Errorf("fetch nacos service error:%s", uri)
@@ -102,6 +104,7 @@ func (nacosClient *NacosClient) GetServiceAllInstances(vo dto.GetInstanceVo) ([]
 	nacosResp := NacosInstanceResp{}
 	err = json.NewDecoder(resp.Body).Decode(&nacosResp)
 
+	_, _ = io.Copy(ioutil.Discard, resp.Body)
 	_ = resp.Body.Close()
 	if err != nil {
 		nacosClient.Logger.Errorf("fetch nacos service instance error:%s", uri)
@@ -168,6 +171,7 @@ func (nacosClient *NacosClient) ModifyRegistration(registration dto.Registration
 			continue
 		}
 
+		_, _ = io.Copy(ioutil.Discard, resp.Body)
 		_ = resp.Body.Close()
 	}
 	return nil

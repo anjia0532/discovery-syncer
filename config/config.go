@@ -17,6 +17,7 @@ import (
 	"errors"
 	"fmt"
 	"gopkg.in/yaml.v2"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -221,6 +222,7 @@ func readConfig(filename string) (string, error) {
 		if err != nil {
 			return "", err
 		}
+		_, _ = io.Copy(ioutil.Discard, resp.Body)
 		_ = resp.Body.Close()
 		return string(content), nil
 	} else {

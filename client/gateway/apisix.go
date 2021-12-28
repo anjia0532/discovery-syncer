@@ -21,6 +21,7 @@ import (
 	"github.com/anjia0532/apisix-discovery-syncer/dto"
 	go_logger "github.com/phachon/go-logger"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"sync"
 	"text/template"
@@ -62,6 +63,7 @@ func (apisixClient *ApisixClient) GetServiceAllInstances(upstreamName string) ([
 
 	apisixResp := ApisixNodeResp{}
 	err = json.NewDecoder(resp.Body).Decode(&apisixResp)
+	_, _ = io.Copy(ioutil.Discard, resp.Body)
 	_ = resp.Body.Close()
 	if err != nil {
 		apisixClient.Logger.Errorf("fetch apisix upstream and decode json error,%s", uri, err)
@@ -169,6 +171,7 @@ func (apisixClient *ApisixClient) SyncInstances(name string, tpl string, discove
 			uri, method, body, respRawByte)
 		return nil
 	}
+	_, _ = io.Copy(ioutil.Discard, resp.Body)
 	_ = resp.Body.Close()
 	return err
 }

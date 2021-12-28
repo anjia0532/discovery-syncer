@@ -19,6 +19,7 @@ import (
 	"github.com/anjia0532/apisix-discovery-syncer/config"
 	"github.com/anjia0532/apisix-discovery-syncer/dto"
 	go_logger "github.com/phachon/go-logger"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"regexp"
@@ -54,8 +55,8 @@ func (eurekaClient *EurekaClient) GetAllService(map[string]string) ([]dto.Servic
 
 	eurekaResp := EurekaAppsResp{}
 	err = json.NewDecoder(resp.Body).Decode(&eurekaResp)
+	_, _ = io.Copy(ioutil.Discard, resp.Body)
 	_ = resp.Body.Close()
-
 	if err != nil {
 		return nil, err
 	}
@@ -90,6 +91,7 @@ func (eurekaClient *EurekaClient) GetServiceAllInstances(vo dto.GetInstanceVo) (
 
 	eurekaClient.Logger.Debugf("fetch eureka service,uri:%s,%#v", uri, eurekaResp)
 
+	_, _ = io.Copy(ioutil.Discard, resp.Body)
 	_ = resp.Body.Close()
 
 	if err != nil {
@@ -149,6 +151,7 @@ func (eurekaClient *EurekaClient) ModifyRegistration(registration dto.Registrati
 		body, _ := ioutil.ReadAll(resp.Body)
 		eurekaClient.Logger.Debugf("change eureka %s instance %#v,body:%s,status:%s", registration.ServiceName,
 			instance, string(body), resp.Status)
+		_, _ = io.Copy(ioutil.Discard, resp.Body)
 		_ = resp.Body.Close()
 	}
 	return nil

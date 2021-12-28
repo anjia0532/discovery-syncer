@@ -21,6 +21,7 @@ import (
 	"github.com/anjia0532/apisix-discovery-syncer/dto"
 	go_logger "github.com/phachon/go-logger"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"strconv"
 	"strings"
@@ -61,6 +62,7 @@ func (kongClient *KongClient) GetServiceAllInstances(upstreamName string) ([]dto
 
 	kongResp := KongTargetResp{}
 	err = json.NewDecoder(resp.Body).Decode(&kongResp)
+	_, _ = io.Copy(ioutil.Discard, resp.Body)
 	_ = resp.Body.Close()
 	if err != nil {
 		kongClient.Logger.Errorf("fetch kong upstream and decode json error,%s", uri, err)
@@ -135,6 +137,7 @@ func (kongClient *KongClient) SyncInstances(name string, tpl string, discoveryIn
 
 		kongClient.Logger.Debugf("update kong upstream uri:%s,method:POST,body:%s,resp:%s", uri, body,
 			respRawByte)
+		_, _ = io.Copy(ioutil.Discard, resp.Body)
 		_ = resp.Body.Close()
 	}
 	// delete first(delete and patch)
@@ -149,6 +152,7 @@ func (kongClient *KongClient) SyncInstances(name string, tpl string, discoveryIn
 			respRawByte, _ := io.ReadAll(resp.Body)
 			kongClient.Logger.Debugf("delete kong target, uri:%s,method:DELETE,body:nil,resp:%s", uri,
 				respRawByte)
+			_, _ = io.Copy(ioutil.Discard, resp.Body)
 			_ = resp.Body.Close()
 		}
 
@@ -164,6 +168,7 @@ func (kongClient *KongClient) SyncInstances(name string, tpl string, discoveryIn
 			respRawByte, _ := io.ReadAll(resp.Body)
 			kongClient.Logger.Debugf("added kong target, uri:%s,method:DELETE,body:%s,resp:%s", uri, body,
 				respRawByte)
+			_, _ = io.Copy(ioutil.Discard, resp.Body)
 			_ = resp.Body.Close()
 		}
 	}
