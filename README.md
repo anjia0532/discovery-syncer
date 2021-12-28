@@ -29,6 +29,7 @@ http://xxxxx/nacos/v1/cs/configs?tenant=public&group=DEFAULT_GROUP&dataId=discov
 ### 配置文件
 
 ```yaml
+enable-pprof: false
 logger:
     level: debug # debug,info,error
     logger: console # console vs file
