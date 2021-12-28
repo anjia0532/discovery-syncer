@@ -5,7 +5,7 @@
 
 ## 快速开始
 
-### 下载二进制文件
+### 通过二进制运行
 
 从 [releases](https://github.com/anjia0532/discovery-syncer/releases) 下载最新的对应系统的二进制文件
 
@@ -23,12 +23,20 @@ Flags:
               Path to configuration file.
 ```
 
+### 通过docker运行
+
+```bash
+docker run anjia0532/discovery-syncer:v1.0.2
+```
+
 特别的，`-c ` 支持配置远端http[s]的地址，比如读取静态资源的，比如读取nacos的 `-c
 http://xxxxx/nacos/v1/cs/configs?tenant=public&group=DEFAULT_GROUP&dataId=discovery-syncer.yaml`,便于管理
 
 ### 配置文件
 
 ```yaml
+# 是否启用 pprof
+# 通过 http://ip:port/debug/pprof/ 访问
 enable-pprof: false
 logger:
     level: debug # debug,info,error
