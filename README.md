@@ -201,7 +201,9 @@ targets:
     "details": [
         "syncer:a_task,is ok",
         "syncer:b-api,is ok"
-    ]
+    ],
+    // 运行时长
+    "uptime": "1m6s"
 }
 
 ```

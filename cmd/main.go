@@ -34,8 +34,11 @@ import (
 	"time"
 )
 
+var startTime time.Time
+
 func main() {
 
+	startTime = time.Now()
 	// pickup command line args
 	var (
 		listenAddress = kingpin.Flag("web.listen-address",
@@ -100,6 +103,7 @@ type healthResp struct {
 	Lost    int      `json:"lost"`
 	Status  string   `json:"status"`
 	Details []string `json:"details"`
+	Uptime  string   `json:"uptime"`
 }
 
 func healthHandler(w http.ResponseWriter, _ *http.Request) {
@@ -127,6 +131,7 @@ func healthHandler(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		healthResp.Status = "WARN"
 	}
+	healthResp.Uptime = fmt.Sprintf("%s", time.Since(startTime).Round(time.Second))
 	data, err := json.Marshal(healthResp)
 	if err != nil {
 		log.Fatal(err)
