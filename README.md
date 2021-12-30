@@ -1,7 +1,7 @@
 # 多端注册中心网关同步工具
 
 支持从nacos(已实现)，eureka(已实现)等注册中心同步到apisix(已实现)和kong(已实现)
-等网关，后续将支持自定义插件，实现用户自己用golang实现类似携程阿波罗注册中心，etcd注册中心，consul注册中心等插件，以及spring gateway等网关插件的高扩展性
+等网关，后续将支持自定义插件，支持用户自己用golang实现支持类似携程阿波罗注册中心，etcd注册中心，consul注册中心等插件，以及spring gateway等网关插件的高扩展性
 
 ## 快速开始
 
@@ -26,7 +26,7 @@ Flags:
 ### 通过docker运行
 
 ```bash
-docker run anjia0532/discovery-syncer:v1.0.2
+docker run anjia0532/discovery-syncer:v1.0.4
 ```
 
 特别的，`-c ` 支持配置远端http[s]的地址，比如读取静态资源的，比如读取nacos的 `-c
