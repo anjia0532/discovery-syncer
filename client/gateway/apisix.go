@@ -23,6 +23,8 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"strconv"
+	"strings"
 	"sync"
 	"text/template"
 	"time"
@@ -79,12 +81,12 @@ func (apisixClient *ApisixClient) GetServiceAllInstances(upstreamName string) ([
 		if upstreamName != node.Value.Name {
 			continue
 		}
-		//for host, weight := range node.Value.Nodes {
-		//	ts := strings.Split(host, ":")
-		//	p, _ := strconv.Atoi(ts[1])
-		//	instance := dto.Instance{Weight: float32(weight), Ip: ts[0], Port: p}
-		//	instances = append(instances, instance)
-		//}
+		for host, weight := range node.Value.Nodes {
+			ts := strings.Split(host, ":")
+			p, _ := strconv.Atoi(ts[1])
+			instance := dto.Instance{Weight: float32(weight), Ip: ts[0], Port: p}
+			instances = append(instances, instance)
+		}
 	}
 	apisixClient.mutex.Unlock()
 	apisixClient.Logger.Debugf("fetch apisix upstream:%s,instances:%+v", uri, instances)
