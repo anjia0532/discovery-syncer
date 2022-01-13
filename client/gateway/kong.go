@@ -17,8 +17,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/anjia0532/apisix-discovery-syncer/config"
-	"github.com/anjia0532/apisix-discovery-syncer/dto"
+	"github.com/anjia0532/apisix-discovery-syncer/model"
 	go_logger "github.com/phachon/go-logger"
 	"io"
 	"io/ioutil"
@@ -32,13 +31,13 @@ import (
 
 type KongClient struct {
 	Client        http.Client
-	Config        config.Gateway
+	Config        model.Gateway
 	Logger        *go_logger.Logger
 	UpstreamIdMap map[string]int
 	mutex         sync.Mutex
 }
 
-func (kongClient *KongClient) GetServiceAllInstances(upstreamName string) ([]dto.Instance, error) {
+func (kongClient *KongClient) GetServiceAllInstances(upstreamName string) ([]model.Instance, error) {
 	kongClient.mutex.Lock()
 	if len(kongClient.UpstreamIdMap) == 0 {
 		kongClient.UpstreamIdMap = make(map[string]int)
@@ -57,10 +56,10 @@ func (kongClient *KongClient) GetServiceAllInstances(upstreamName string) ([]dto
 	}
 	kongClient.UpstreamIdMap[upstreamName] = resp.StatusCode
 	if resp.StatusCode == 404 {
-		return make([]dto.Instance, 0), nil
+		return make([]model.Instance, 0), nil
 	}
 
-	kongResp := KongTargetResp{}
+	kongResp := model.KongTargetResp{}
 	err = json.NewDecoder(resp.Body).Decode(&kongResp)
 	_, _ = io.Copy(ioutil.Discard, resp.Body)
 	_ = resp.Body.Close()
@@ -69,11 +68,11 @@ func (kongClient *KongClient) GetServiceAllInstances(upstreamName string) ([]dto
 		return nil, err
 	}
 
-	instances := []dto.Instance{}
+	instances := []model.Instance{}
 	for _, target := range kongResp.Data {
 		parts := strings.Split(target.Target, ":")
 		port, _ := strconv.Atoi(parts[1])
-		instances = append(instances, dto.Instance{Weight: target.Weight, Ip: parts[0], Port: port})
+		instances = append(instances, model.Instance{Weight: target.Weight, Ip: parts[0], Port: port})
 	}
 	kongClient.mutex.Unlock()
 	return instances, nil
@@ -93,8 +92,8 @@ var DefaultKongTargetTemplate = `
 }
 `
 
-func (kongClient *KongClient) SyncInstances(name string, tpl string, discoveryInstances []dto.Instance,
-	diffIns []dto.Instance) error {
+func (kongClient *KongClient) SyncInstances(name string, tpl string, discoveryInstances []model.Instance,
+	diffIns []model.Instance) error {
 
 	if len(diffIns) == 0 && len(discoveryInstances) == 0 {
 		return nil
@@ -173,13 +172,4 @@ func (kongClient *KongClient) SyncInstances(name string, tpl string, discoveryIn
 		}
 	}
 	return nil
-}
-
-type KongTarget struct {
-	Weight float32 `json:"weight"`
-	Target string  `json:"target"`
-}
-
-type KongTargetResp struct {
-	Data []KongTarget `json:"data"`
 }

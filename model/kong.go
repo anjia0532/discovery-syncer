@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 The AnJia Authors.
+ * Copyright (c) 2022 The AnJia Authors.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -11,14 +11,13 @@
  * limitations under the License.
  */
 
-package gateway
+package model
 
-import (
-	"github.com/anjia0532/apisix-discovery-syncer/model"
-)
+type KongTarget struct {
+	Weight float32 `json:"weight"`
+	Target string  `json:"target"`
+}
 
-type GatewayClient interface {
-	GetServiceAllInstances(upstreamName string) ([]model.Instance, error)
-
-	SyncInstances(name string, tpl string, discoveryInstances []model.Instance, diffIns []model.Instance) error
+type KongTargetResp struct {
+	Data []KongTarget `json:"data"`
 }

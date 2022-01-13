@@ -17,8 +17,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/anjia0532/apisix-discovery-syncer/config"
-	"github.com/anjia0532/apisix-discovery-syncer/dto"
+	"github.com/anjia0532/apisix-discovery-syncer/model"
 	go_logger "github.com/phachon/go-logger"
 	"io"
 	"io/ioutil"
@@ -32,7 +31,7 @@ import (
 
 type ApisixClient struct {
 	Client        http.Client
-	Config        config.Gateway
+	Config        model.Gateway
 	UpstreamIdMap map[string]string
 	Logger        *go_logger.Logger
 	mutex         sync.Mutex
@@ -40,7 +39,7 @@ type ApisixClient struct {
 
 var fetchAllUpstream = "upstreams"
 
-func (apisixClient *ApisixClient) GetServiceAllInstances(upstreamName string) ([]dto.Instance, error) {
+func (apisixClient *ApisixClient) GetServiceAllInstances(upstreamName string) ([]model.Instance, error) {
 	apisixClient.mutex.Lock()
 	if apisixClient.UpstreamIdMap == nil {
 		apisixClient.UpstreamIdMap = make(map[string]string)
@@ -63,7 +62,7 @@ func (apisixClient *ApisixClient) GetServiceAllInstances(upstreamName string) ([
 		return nil, err
 	}
 
-	apisixResp := ApisixNodeResp{}
+	apisixResp := model.ApisixNodeResp{}
 	err = json.NewDecoder(resp.Body).Decode(&apisixResp)
 	_, _ = io.Copy(ioutil.Discard, resp.Body)
 	_ = resp.Body.Close()
@@ -72,7 +71,7 @@ func (apisixClient *ApisixClient) GetServiceAllInstances(upstreamName string) ([
 		return nil, err
 	}
 
-	instances := []dto.Instance{}
+	instances := []model.Instance{}
 	if upstreamId != fetchAllUpstream {
 		apisixResp.Node.Nodes = append(apisixResp.Node.Nodes, apisixResp.Node)
 	}
@@ -84,7 +83,7 @@ func (apisixClient *ApisixClient) GetServiceAllInstances(upstreamName string) ([
 		for host, weight := range node.Value.Nodes {
 			ts := strings.Split(host, ":")
 			p, _ := strconv.Atoi(ts[1])
-			instance := dto.Instance{Weight: float32(weight), Ip: ts[0], Port: p}
+			instance := model.Instance{Weight: float32(weight), Ip: ts[0], Port: p}
 			instances = append(instances, instance)
 		}
 	}
@@ -107,8 +106,8 @@ var DefaultApisixUpstreamTemplate = `
 }
 `
 
-func (apisixClient *ApisixClient) SyncInstances(name string, tpl string, discoveryInstances []dto.Instance,
-	diffIns []dto.Instance) error {
+func (apisixClient *ApisixClient) SyncInstances(name string, tpl string, discoveryInstances []model.Instance,
+	diffIns []model.Instance) error {
 	if len(diffIns) == 0 && len(discoveryInstances) == 0 {
 		return nil
 	}
@@ -176,59 +175,4 @@ func (apisixClient *ApisixClient) SyncInstances(name string, tpl string, discove
 	_, _ = io.Copy(ioutil.Discard, resp.Body)
 	_ = resp.Body.Close()
 	return err
-}
-
-type ApisixUpstream struct {
-	Id     string      `json:"id"`
-	TNodes interface{} `json:"nodes"`
-	Nodes  map[string]float64
-	Name   string `json:"name"`
-}
-
-type ApisixNode struct {
-	Nodes []ApisixNode   `json:"nodes"`
-	Value ApisixUpstream `json:"value"`
-}
-
-type ApisixNodeResp struct {
-	Node ApisixNode `json:"node"`
-}
-
-func (c *ApisixNodeResp) UnmarshalJSON(data []byte) error {
-	*c = ApisixNodeResp{}
-
-	type plain ApisixNodeResp
-	if err := json.Unmarshal(data, (*plain)(c)); err != nil {
-		return err
-	}
-
-	for _, node := range c.Node.Nodes {
-		node.Value.Nodes = make(map[string]float64)
-		switch node.Value.TNodes.(type) {
-		case []interface{}:
-			//[
-			//    {
-			//      "host": "10.42.113.174",
-			//      "port": 9090,
-			//      "weight": 2
-			//    }
-			//  ]
-			tArr := node.Value.TNodes.([]interface{})
-			for _, arr := range tArr {
-				myMap := arr.(map[string]interface{})
-				node.Value.Nodes[fmt.Sprintf("%s:%.0f", myMap["host"], myMap["port"])] = myMap["weight"].(float64)
-			}
-
-		case map[string]interface{}:
-			// {
-			//    "10.42.163.208:8099": 1
-			//  }
-			myMap := node.Value.TNodes.(map[string]interface{})
-			for k, v := range myMap {
-				node.Value.Nodes[k] = v.(float64)
-			}
-		}
-	}
-
-	return nil
 }

@@ -18,24 +18,23 @@ import (
 	"fmt"
 	"github.com/anjia0532/apisix-discovery-syncer/client/discovery"
 	"github.com/anjia0532/apisix-discovery-syncer/client/gateway"
-	"github.com/anjia0532/apisix-discovery-syncer/config"
-	"github.com/anjia0532/apisix-discovery-syncer/dto"
+	"github.com/anjia0532/apisix-discovery-syncer/model"
 	go_logger "github.com/phachon/go-logger"
 	"regexp"
 	"time"
 )
 
-func createDiscoveryClient(discoveryMap map[string]config.Discovery,
+func createDiscoveryClient(discoveryMap map[string]model.Discovery,
 	logger *go_logger.Logger) (iClients map[string]discovery.DiscoveryClient, err error) {
 	var client discovery.DiscoveryClient
 	iClients = make(map[string]discovery.DiscoveryClient)
 
 	for name, server := range discoveryMap {
 		switch server.Type {
-		case config.EUREKA_DISCOVERY:
+		case model.EUREKA_DISCOVERY:
 			client = &discovery.EurekaClient{Config: server, Logger: logger}
 			break
-		case config.NACOS_DISCOVERY:
+		case model.NACOS_DISCOVERY:
 			client = &discovery.NacosClient{Config: server, Logger: logger}
 			break
 		default:
@@ -46,17 +45,17 @@ func createDiscoveryClient(discoveryMap map[string]config.Discovery,
 	return
 }
 
-func createGatewayClient(gatewayMap map[string]config.Gateway,
+func createGatewayClient(gatewayMap map[string]model.Gateway,
 	logger *go_logger.Logger) (iClients map[string]gateway.GatewayClient, err error) {
 	var client gateway.GatewayClient
 	iClients = make(map[string]gateway.GatewayClient)
 
 	for name, server := range gatewayMap {
 		switch server.Type {
-		case config.APISIX_GATEWAY:
+		case model.APISIX_GATEWAY:
 			client = &gateway.ApisixClient{Config: server, Logger: logger}
 			break
-		case config.KONG_GATEWAY:
+		case model.KONG_GATEWAY:
 			client = &gateway.KongClient{Config: server, Logger: logger}
 			break
 		default:
@@ -82,7 +81,7 @@ func GetHealthMap() map[string]int64 {
 	return healthMap
 }
 
-func CreateSyncer(config *config.Config, logger *go_logger.Logger) (syncers []Syncer, err error) {
+func CreateSyncer(config *model.Config, logger *go_logger.Logger) (syncers []Syncer, err error) {
 	discoveryClientMap, err = createDiscoveryClient(config.DiscoveryServers, logger)
 	gatewayClientMap, err = createGatewayClient(config.GatewayServers, logger)
 
@@ -164,15 +163,15 @@ func (syncer *Syncer) Run() {
 	return
 }
 
-func (syncer *Syncer) syncServiceInstances(service dto.Service) {
+func (syncer *Syncer) syncServiceInstances(service model.Service) {
 	var (
-		discoveryInstances []dto.Instance
+		discoveryInstances []model.Instance
 		err                error
 	)
 	if len(service.Instances) > 0 {
 		discoveryInstances = service.Instances
 	} else {
-		vo := dto.GetInstanceVo{ServiceName: service.Name, ExtData: syncer.Config}
+		vo := model.GetInstanceVo{ServiceName: service.Name, ExtData: syncer.Config}
 		discoveryInstances, err = syncer.DiscoveryClient.GetServiceAllInstances(vo)
 
 		syncer.Logger.Debugf("Sync serviceName:%s", service.Name)
@@ -188,8 +187,8 @@ func (syncer *Syncer) syncServiceInstances(service dto.Service) {
 		panic(err)
 	}
 
-	dim := map[string]dto.Instance{}
-	gim := map[string]dto.Instance{}
+	dim := map[string]model.Instance{}
+	gim := map[string]model.Instance{}
 
 	for _, instance := range discoveryInstances {
 		dim[fmt.Sprintf("%s:%d@%f", instance.Ip, instance.Port, instance.Weight)] = instance
@@ -207,8 +206,8 @@ func (syncer *Syncer) syncServiceInstances(service dto.Service) {
 		return
 	}
 
-	tdim := map[string]dto.Instance{}
-	diffIns := []dto.Instance{}
+	tdim := map[string]model.Instance{}
+	diffIns := []model.Instance{}
 	for _, instance := range dim {
 		instance.Enabled = true
 		tdim[fmt.Sprintf("%s:%d", instance.Ip, instance.Port)] = instance

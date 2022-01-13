@@ -11,7 +11,7 @@
  * limitations under the License.
  */
 
-package dto
+package model
 
 import (
 	"encoding/json"

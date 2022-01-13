@@ -16,8 +16,7 @@ package discovery
 import (
 	"encoding/json"
 	"errors"
-	"github.com/anjia0532/apisix-discovery-syncer/config"
-	"github.com/anjia0532/apisix-discovery-syncer/dto"
+	"github.com/anjia0532/apisix-discovery-syncer/model"
 	go_logger "github.com/phachon/go-logger"
 	"io"
 	"io/ioutil"
@@ -29,13 +28,13 @@ import (
 
 type EurekaClient struct {
 	Client http.Client
-	Config config.Discovery
+	Config model.Discovery
 	Logger *go_logger.Logger
 }
 
 var HostPageRE = regexp.MustCompile(`^https?://(?P<Ip>[\w.]+):(?P<Port>\d+)/?$`)
 
-func (eurekaClient *EurekaClient) GetAllService(map[string]string) ([]dto.Service, error) {
+func (eurekaClient *EurekaClient) GetAllService(map[string]string) ([]model.Service, error) {
 	uri := eurekaClient.Config.Host + eurekaClient.Config.Prefix + "apps/"
 	hc := &http.Client{Timeout: 30 * time.Second}
 
@@ -47,29 +46,29 @@ func (eurekaClient *EurekaClient) GetAllService(map[string]string) ([]dto.Servic
 		return nil, err
 	}
 	if 404 == resp.StatusCode {
-		return []dto.Service{}, nil
+		return []model.Service{}, nil
 	} else if 200 != resp.StatusCode {
 		eurekaClient.Logger.Errorf("fetch eureka service error:%s", uri)
 		return nil, errors.New("fetch eureka service error")
 	}
 
-	eurekaResp := EurekaAppsResp{}
+	eurekaResp := model.EurekaAppsResp{}
 	err = json.NewDecoder(resp.Body).Decode(&eurekaResp)
 	_, _ = io.Copy(ioutil.Discard, resp.Body)
 	_ = resp.Body.Close()
 	if err != nil {
 		return nil, err
 	}
-	services := []dto.Service{}
+	services := []model.Service{}
 	for _, app := range eurekaResp.Applications.Application {
 
-		services = append(services, dto.Service{Name: app.Name,
+		services = append(services, model.Service{Name: app.Name,
 			Instances: convertEurekaInstance(app.Instance, eurekaClient.Config.Weight)})
 	}
 	return services, nil
 }
 
-func (eurekaClient *EurekaClient) GetServiceAllInstances(vo dto.GetInstanceVo) ([]dto.Instance, error) {
+func (eurekaClient *EurekaClient) GetServiceAllInstances(vo model.GetInstanceVo) ([]model.Instance, error) {
 	uri := eurekaClient.Config.Host + eurekaClient.Config.Prefix + "apps/" + vo.ServiceName
 	hc := &http.Client{Timeout: 30 * time.Second}
 
@@ -81,12 +80,12 @@ func (eurekaClient *EurekaClient) GetServiceAllInstances(vo dto.GetInstanceVo) (
 		return nil, err
 	}
 	if 404 == resp.StatusCode {
-		return []dto.Instance{}, nil
+		return []model.Instance{}, nil
 	} else if 200 != resp.StatusCode {
 		eurekaClient.Logger.Errorf("fetch eureka service instance error:%s", uri)
 		return nil, errors.New("fetch eureka service instance error")
 	}
-	eurekaResp := EurekaAppResp{}
+	eurekaResp := model.EurekaAppResp{}
 	err = json.NewDecoder(resp.Body).Decode(&eurekaResp)
 
 	eurekaClient.Logger.Debugf("fetch eureka service,uri:%s,%#v", uri, eurekaResp)
@@ -103,9 +102,9 @@ func (eurekaClient *EurekaClient) GetServiceAllInstances(vo dto.GetInstanceVo) (
 	return instances, nil
 }
 
-func convertEurekaInstance(eurekaApps []EurekaInstance, defaultWeight float32) []dto.Instance {
+func convertEurekaInstance(eurekaApps []model.EurekaInstance, defaultWeight float32) []model.Instance {
 
-	instances := []dto.Instance{}
+	instances := []model.Instance{}
 	if len(eurekaApps) == 0 {
 		return instances
 	}
@@ -116,7 +115,7 @@ func convertEurekaInstance(eurekaApps []EurekaInstance, defaultWeight float32) [
 		matches := HostPageRE.FindStringSubmatch(eurekaIns.HomePageUrl)
 
 		port, _ := strconv.Atoi(matches[HostPageRE.SubexpIndex("Port")])
-		instance := dto.Instance{Ip: matches[HostPageRE.SubexpIndex("Ip")], Port: port,
+		instance := model.Instance{Ip: matches[HostPageRE.SubexpIndex("Ip")], Port: port,
 			Metadata: eurekaIns.Metadata, Weight: defaultWeight,
 			Ext: map[string]string{"instanceId": eurekaIns.InstanceId}}
 
@@ -124,7 +123,7 @@ func convertEurekaInstance(eurekaApps []EurekaInstance, defaultWeight float32) [
 	}
 	return instances
 }
-func (eurekaClient *EurekaClient) ModifyRegistration(registration dto.Registration, instances []dto.Instance) error {
+func (eurekaClient *EurekaClient) ModifyRegistration(registration model.Registration, instances []model.Instance) error {
 	for _, instance := range instances {
 		if !instance.Change {
 			continue
@@ -155,24 +154,4 @@ func (eurekaClient *EurekaClient) ModifyRegistration(registration dto.Registrati
 		_ = resp.Body.Close()
 	}
 	return nil
-}
-
-type EurekaAppsResp struct {
-	Applications EurekaApps `json:"applications"`
-}
-type EurekaApps struct {
-	Application []EurekaApp `json:"application"`
-}
-type EurekaAppResp struct {
-	Application EurekaApp `json:"application"`
-}
-type EurekaApp struct {
-	Name     string           `json:"name"`
-	Instance []EurekaInstance `json:"instance"`
-}
-type EurekaInstance struct {
-	HomePageUrl string            `json:"homePageUrl"`
-	Status      string            `json:"status"`
-	Metadata    map[string]string `json:"metadata"`
-	InstanceId  string            `json:"instanceId"`
 }

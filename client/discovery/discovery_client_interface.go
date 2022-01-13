@@ -14,15 +14,15 @@
 package discovery
 
 import (
-	"github.com/anjia0532/apisix-discovery-syncer/dto"
+	"github.com/anjia0532/apisix-discovery-syncer/model"
 )
 
 type DiscoveryClient interface {
-	GetAllService(data map[string]string) ([]dto.Service, error)
+	GetAllService(data map[string]string) ([]model.Service, error)
 
 	// GetServiceAllInstances get instances by serviceName
-	GetServiceAllInstances(vo dto.GetInstanceVo) ([]dto.Instance, error)
+	GetServiceAllInstances(vo model.GetInstanceVo) ([]model.Instance, error)
 
 	// ModifyRegistration modify discovery registration info by body json
-	ModifyRegistration(registration dto.Registration, instances []dto.Instance) error
+	ModifyRegistration(registration model.Registration, instances []model.Instance) error
 }

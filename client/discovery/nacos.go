@@ -17,8 +17,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/anjia0532/apisix-discovery-syncer/config"
-	"github.com/anjia0532/apisix-discovery-syncer/dto"
+	"github.com/anjia0532/apisix-discovery-syncer/model"
 	go_logger "github.com/phachon/go-logger"
 	"io"
 	"io/ioutil"
@@ -30,11 +29,11 @@ import (
 
 type NacosClient struct {
 	Client http.Client
-	Config config.Discovery
+	Config model.Discovery
 	Logger *go_logger.Logger
 }
 
-func (nacosClient *NacosClient) GetAllService(data map[string]string) ([]dto.Service, error) {
+func (nacosClient *NacosClient) GetAllService(data map[string]string) ([]model.Service, error) {
 	// /nacos/v1/ns/service/list?pageNo=0&pageSize=100&groupName=&namespaceId=
 	data = getDefaultMap(data, map[string]string{
 		"pageNo":      "0",
@@ -53,7 +52,7 @@ func (nacosClient *NacosClient) GetAllService(data map[string]string) ([]dto.Ser
 		nacosClient.Logger.Errorf("fetch nacos service error:%s", uri)
 		return nil, errors.New("fetch nacos service error")
 	}
-	serviceResp := &NacosServiceResp{}
+	serviceResp := &model.NacosServiceResp{}
 
 	err = json.NewDecoder(resp.Body).Decode(&serviceResp)
 	_, _ = io.Copy(ioutil.Discard, resp.Body)
@@ -63,9 +62,9 @@ func (nacosClient *NacosClient) GetAllService(data map[string]string) ([]dto.Ser
 		return nil, errors.New("fetch nacos service error")
 	}
 	nacosClient.Logger.Debugf("fetch nacos service,uri:%s,%#v", uri, serviceResp)
-	services := []dto.Service{}
+	services := []model.Service{}
 	for _, name := range serviceResp.ServiceNames {
-		services = append(services, dto.Service{Name: name})
+		services = append(services, model.Service{Name: name})
 	}
 	return services, nil
 }
@@ -79,7 +78,7 @@ func getDefaultMap(data map[string]string, defaultMap map[string]string) map[str
 	}
 	return data
 }
-func (nacosClient *NacosClient) GetServiceAllInstances(vo dto.GetInstanceVo) ([]dto.Instance, error) {
+func (nacosClient *NacosClient) GetServiceAllInstances(vo model.GetInstanceVo) ([]model.Instance, error) {
 	vo.ExtData["serviceName"] = vo.ServiceName
 	r := url.Values{}
 	for k, v := range vo.ExtData {
@@ -101,7 +100,7 @@ func (nacosClient *NacosClient) GetServiceAllInstances(vo dto.GetInstanceVo) ([]
 		return nil, errors.New("fetch nacos service instance error")
 	}
 
-	nacosResp := NacosInstanceResp{}
+	nacosResp := model.NacosInstanceResp{}
 	err = json.NewDecoder(resp.Body).Decode(&nacosResp)
 
 	_, _ = io.Copy(ioutil.Discard, resp.Body)
@@ -111,9 +110,9 @@ func (nacosClient *NacosClient) GetServiceAllInstances(vo dto.GetInstanceVo) ([]
 		return nil, errors.New("fetch nacos service instance error")
 	}
 	nacosClient.Logger.Debugf("fetch nacos service:%s,instances:%+v", uri, nacosResp.Hosts)
-	instances := []dto.Instance{}
+	instances := []model.Instance{}
 	for _, host := range nacosResp.Hosts {
-		instance := dto.Instance{
+		instance := model.Instance{
 			Ip:       host.Ip,
 			Port:     host.Port,
 			Weight:   host.Weight,
@@ -133,7 +132,7 @@ func (nacosClient *NacosClient) GetServiceAllInstances(vo dto.GetInstanceVo) ([]
 	return instances, err
 }
 
-func (nacosClient *NacosClient) ModifyRegistration(registration dto.Registration, instances []dto.Instance) error {
+func (nacosClient *NacosClient) ModifyRegistration(registration model.Registration, instances []model.Instance) error {
 	for _, instance := range instances {
 		if !instance.Change {
 			continue
@@ -175,24 +174,4 @@ func (nacosClient *NacosClient) ModifyRegistration(registration dto.Registration
 		_ = resp.Body.Close()
 	}
 	return nil
-}
-
-type NacosInstanceResp struct {
-	Hosts []Instance `json:"hosts"`
-}
-type Instance struct {
-	Port        int               `json:"port"`
-	Ip          string            `json:"ip"`
-	Weight      float32           `json:"weight"`
-	Metadata    map[string]string `json:"metadata"`
-	Enabled     bool              `json:"enabled,omitempty"`
-	Ephemeral   bool              `json:"ephemeral,omitempty"`
-	NamespaceId string            `json:"namespaceId,omitempty"`
-	ClusterName string            `json:"clusterName,omitempty"`
-	GroupName   string            `json:"groupName,omitempty"`
-	ServiceName string            `json:"serviceName,omitempty"`
-}
-type NacosServiceResp struct {
-	ServiceNames []string `json:"doms"`
-	Total        int      `json:"count"`
 }

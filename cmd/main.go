@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"github.com/anjia0532/apisix-discovery-syncer/client"
 	"github.com/anjia0532/apisix-discovery-syncer/config"
-	"github.com/anjia0532/apisix-discovery-syncer/dto"
+	"github.com/anjia0532/apisix-discovery-syncer/model"
 	"github.com/gorilla/mux"
 	"github.com/phachon/go-logger"
 	"github.com/robfig/cron/v3"
@@ -148,18 +148,18 @@ func discoveryHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	registration := dto.Registration{}
+	registration := model.Registration{}
 	err := json.NewDecoder(r.Body).Decode(&registration)
 	if err != nil {
 		_, _ = fmt.Fprintf(w, err.Error())
 	}
 	discoveryInstances, err := discovery.GetServiceAllInstances(
-		dto.GetInstanceVo{ServiceName: registration.ServiceName, ExtData: registration.ExtData})
+		model.GetInstanceVo{ServiceName: registration.ServiceName, ExtData: registration.ExtData})
 	if err != nil {
 		_, _ = fmt.Fprintf(w, err.Error())
 		return
 	}
-	instances := []dto.Instance{}
+	instances := []model.Instance{}
 	for _, instance := range discoveryInstances {
 		val := ""
 		if registration.Type == "METADATA" {
