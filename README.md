@@ -26,7 +26,7 @@ Flags:
 ### 通过docker运行
 
 ```bash
-docker run anjia0532/discovery-syncer:v1.0.4
+docker run anjia0532/discovery-syncer:v1.0.5
 ```
 
 特别的，`-c ` 支持配置远端http[s]的地址，比如读取静态资源的，比如读取nacos的 `-c
@@ -183,7 +183,7 @@ targets:
 | `GET /`                 | `OK` | 服务是否启动                                                 |
 | `GET /-/reload`         | `OK` | 重新加载配置文件，加载成功返回OK，主要是cicd场景或者k8s的configmap reload 场景使用 |
 | `GET /health`           | JSON | 判断服务是否健康，可以配合k8s等容器服务的健康检查使用                           |
-| `PUT /discovery/{name}` | `OK` | 主动下线上线注册中心的服务,配合CICD发版业务用                              |
+| `PUT /discovery/{name}` | `OK` | 主动下线上线注册中心的服务,配合CI/CD发版业务用                             |
 
 `GET /health` 的返回值
 
@@ -208,7 +208,7 @@ targets:
 
 ```
 
-`PUT /discovery/{name}` 中的name是注册中的名字，如果不存在，则返回 `Not Found`
+`PUT /discovery/{name}` 中的name是注册中心的名字，如果不存在，则返回 `Not Found`
 
 body入参
 
