@@ -24,7 +24,6 @@ import (
 	"github.com/phachon/go-logger"
 	"github.com/robfig/cron/v3"
 	"gopkg.in/alecthomas/kingpin.v2"
-	"log"
 	"net/http"
 	"net/http/pprof"
 	"os"
@@ -84,15 +83,15 @@ func main() {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 		if err := srv.Shutdown(ctx); nil != err {
-			log.Fatalf("server shutdown failed, err: %v\n", err)
+			logger.Errorf("server shutdown failed, err: %v\n", err)
 		}
-		log.Println("server gracefully shutdown")
+		logger.Info("server gracefully shutdown")
 
 		close(processed)
 	}()
 	err = srv.ListenAndServe()
 	if http.ErrServerClosed != err {
-		log.Fatalf("server not gracefully shutdown, err :%v\n", err)
+		logger.Errorf("server not gracefully shutdown, err :%v\n", err)
 	}
 	<-processed
 }
@@ -134,7 +133,7 @@ func healthHandler(w http.ResponseWriter, _ *http.Request) {
 	healthResp.Uptime = fmt.Sprintf("%s", time.Since(startTime).Round(time.Second))
 	data, err := json.Marshal(healthResp)
 	if err != nil {
-		log.Fatal(err)
+		logger.Errorf("failed to get health ", err)
 	}
 	_, _ = fmt.Fprintf(w, "%s", data)
 }
@@ -153,6 +152,7 @@ func discoveryHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		_, _ = fmt.Fprintf(w, err.Error())
 	}
+	logger.Infof("discoveryHandler: update discovery instances status,param: %+v", registration)
 	discoveryInstances, err := discovery.GetServiceAllInstances(
 		model.GetInstanceVo{ServiceName: registration.ServiceName, ExtData: registration.ExtData})
 	if err != nil {

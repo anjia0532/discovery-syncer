@@ -26,8 +26,9 @@ type ApisixUpstream struct {
 }
 
 type ApisixNode struct {
-	Nodes []ApisixNode   `json:"nodes"`
-	Value ApisixUpstream `json:"value"`
+	Nodes  []ApisixNode
+	TNodes interface{}    `json:"nodes"`
+	Value  ApisixUpstream `json:"value"`
 }
 
 type ApisixNodeResp struct {
@@ -42,33 +43,39 @@ func (c *ApisixNodeResp) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	for _, node := range c.Node.Nodes {
-		node.Value.Nodes = make(map[string]float64)
-		// TNodes interface{} `json:"nodes"`
-		switch node.Value.TNodes.(type) {
-		case []interface{}:
-			//[
-			//    {
-			//      "host": "10.42.113.174",
-			//      "port": 9090,
-			//      "weight": 2
-			//    }
-			//  ]
-			tArr := node.Value.TNodes.([]interface{})
-			for _, arr := range tArr {
-				myMap := arr.(map[string]interface{})
-				node.Value.Nodes[fmt.Sprintf("%s:%.0f", myMap["host"], myMap["port"])] = myMap["weight"].(float64)
-			}
+	switch t := c.Node.TNodes.(type) {
+	case []ApisixNode:
+		for _, node := range t {
+			node.Value.Nodes = make(map[string]float64)
+			// TNodes interface{} `json:"nodes"`
+			switch node.Value.TNodes.(type) {
+			case []interface{}:
+				//[
+				//    {
+				//      "host": "10.42.113.174",
+				//      "port": 9090,
+				//      "weight": 2
+				//    }
+				//  ]
+				tArr := node.Value.TNodes.([]interface{})
+				for _, arr := range tArr {
+					myMap := arr.(map[string]interface{})
+					node.Value.Nodes[fmt.Sprintf("%s:%.0f", myMap["host"], myMap["port"])] = myMap["weight"].(float64)
+				}
 
-		case map[string]interface{}:
-			// {
-			//    "10.42.163.208:8099": 1
-			//  }
-			myMap := node.Value.TNodes.(map[string]interface{})
-			for k, v := range myMap {
-				node.Value.Nodes[k] = v.(float64)
+			case map[string]interface{}:
+				// {
+				//    "10.42.163.208:8099": 1
+				//  }
+				myMap := node.Value.TNodes.(map[string]interface{})
+				for k, v := range myMap {
+					node.Value.Nodes[k] = v.(float64)
+				}
 			}
 		}
+	default:
+		c.Node.Nodes = []ApisixNode{}
+		break
 	}
 
 	return nil

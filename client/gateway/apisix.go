@@ -67,7 +67,7 @@ func (apisixClient *ApisixClient) GetServiceAllInstances(upstreamName string) ([
 	_, _ = io.Copy(ioutil.Discard, resp.Body)
 	_ = resp.Body.Close()
 	if err != nil {
-		apisixClient.Logger.Errorf("fetch apisix upstream and decode json error,%s", uri, err)
+		apisixClient.Logger.Errorf("fetch apisix upstream and decode json error,", uri, err)
 		return nil, err
 	}
 
