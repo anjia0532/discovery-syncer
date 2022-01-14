@@ -48,7 +48,7 @@ func (eurekaClient *EurekaClient) GetAllService(map[string]string) ([]model.Serv
 	if 404 == resp.StatusCode {
 		return []model.Service{}, nil
 	} else if 200 != resp.StatusCode {
-		eurekaClient.Logger.Errorf("fetch eureka service error:%s", uri)
+		eurekaClient.Logger.Errorf("fetch eureka service error, uri:%s, err:%s", uri, err)
 		return nil, errors.New("fetch eureka service error")
 	}
 
@@ -82,7 +82,7 @@ func (eurekaClient *EurekaClient) GetServiceAllInstances(vo model.GetInstanceVo)
 	if 404 == resp.StatusCode {
 		return []model.Instance{}, nil
 	} else if 200 != resp.StatusCode {
-		eurekaClient.Logger.Errorf("fetch eureka service instance error:%s", uri)
+		eurekaClient.Logger.Errorf("fetch eureka service instance error, uri:%s, err:%s", uri, err)
 		return nil, errors.New("fetch eureka service instance error")
 	}
 	eurekaResp := model.EurekaAppResp{}
@@ -98,7 +98,7 @@ func (eurekaClient *EurekaClient) GetServiceAllInstances(vo model.GetInstanceVo)
 	}
 
 	instances := convertEurekaInstance(eurekaResp.Application.Instance, eurekaClient.Config.Weight)
-	eurekaClient.Logger.Debugf("fetch eureka service:%s,instances:%+v", uri, instances)
+	eurekaClient.Logger.Debugf("fetch eureka service:%s,instances:%#v", uri, instances)
 	return instances, nil
 }
 
@@ -143,8 +143,8 @@ func (eurekaClient *EurekaClient) ModifyRegistration(registration model.Registra
 		req.Header.Add("Accept", "application/json")
 		resp, err := hc.Do(req)
 		if err != nil {
-			eurekaClient.Logger.Errorf("change eureka %s instance %#v failed", registration.ServiceName,
-				instance)
+			eurekaClient.Logger.Errorf("change eureka %s instance %#v failed, err:%s", registration.ServiceName,
+				instance, err)
 			return err
 		}
 		body, _ := ioutil.ReadAll(resp.Body)

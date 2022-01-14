@@ -84,7 +84,7 @@ func main() {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 		if err := srv.Shutdown(ctx); nil != err {
-			logger.Errorf("server shutdown failed, err: %v\n", err)
+			logger.Errorf("server shutdown failed, err:%s", err)
 		}
 		logger.Info("server gracefully shutdown")
 
@@ -92,7 +92,7 @@ func main() {
 	}()
 	err = srv.ListenAndServe()
 	if http.ErrServerClosed != err {
-		logger.Errorf("server not gracefully shutdown, err :%v\n", err)
+		logger.Errorf("server not gracefully shutdown, err:%s", err)
 	}
 	<-processed
 }
@@ -175,7 +175,7 @@ func discoveryHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		_, _ = fmt.Fprintf(w, err.Error())
 	}
-	logger.Infof("discoveryHandler: update discovery instances status,param: %+v", registration)
+	logger.Infof("discoveryHandler: update discovery instances status,param: %#v", registration)
 	discoveryInstances, err := discovery.GetServiceAllInstances(
 		model.GetInstanceVo{ServiceName: registration.ServiceName, ExtData: registration.ExtData})
 	if err != nil {

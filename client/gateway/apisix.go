@@ -92,7 +92,7 @@ func (apisixClient *ApisixClient) GetServiceAllInstances(upstreamName string) ([
 		}
 	}
 	apisixClient.mutex.Unlock()
-	apisixClient.Logger.Debugf("fetch apisix upstream:%s,instances:%+v", uri, instances)
+	apisixClient.Logger.Debugf("fetch apisix upstream:%s,instances:%#v", uri, instances)
 	return instances, nil
 }
 
@@ -143,7 +143,7 @@ func (apisixClient *ApisixClient) SyncInstances(name string, tpl string, discove
 		}{Name: name, Nodes: string(nodesJson)}
 		err = tmpl.Execute(&buf, data)
 		if err != nil {
-			apisixClient.Logger.Errorf("parse apisix UpstreamTemplate failed,tmpl:%s,data:%+v", tmpl, data)
+			apisixClient.Logger.Errorf("parse apisix UpstreamTemplate failed,tmpl:%s,data:%#v", tmpl, data)
 		} else {
 			body = buf.String()
 		}
@@ -267,7 +267,7 @@ func (apisixClient *ApisixClient) FetchAdminApiToFile() (string, string, error) 
 	for uri, field := range uris {
 		apisixResp, err := apisixClient.fetchInfoFromApisix(uri)
 		if err != nil {
-			apisixClient.Logger.Errorf("[admin_api_to_yaml]fetchInfoFromApisix error,uri,%s,err:%s\n", uri, err.Error())
+			apisixClient.Logger.Errorf("[admin_api_to_yaml]fetchInfoFromApisix error,uri,%s,err:%s", uri, err)
 			continue
 		}
 		v := reflect.ValueOf(&apisixConfig).Elem()
@@ -278,32 +278,32 @@ func (apisixClient *ApisixClient) FetchAdminApiToFile() (string, string, error) 
 
 	jsonByte, err := json.Marshal(apisixConfig)
 	if err != nil {
-		apisixClient.Logger.Errorf("[admin_api_to_yaml]convert struct to json error,err:%s\n", err.Error())
+		apisixClient.Logger.Errorf("[admin_api_to_yaml]convert struct to json error,err:%s", err)
 		return "", "", err
 	}
 
 	ymlBytes, err := yaml.JSONToYAML(jsonByte)
 	if err != nil {
-		apisixClient.Logger.Errorf("[admin_api_to_yaml]convert json to yaml error,err:%s\n", err.Error())
+		apisixClient.Logger.Errorf("[admin_api_to_yaml]convert json to yaml error,err:%s", err)
 		return "", "", err
 	}
 
 	tmpl, err := template.New("ApisixConfigTemplate").Parse(ApisixConfigTemplate)
 	if err != nil {
-		apisixClient.Logger.Errorf("[admin_api_to_yaml]parse template error,err:%s\n", err.Error())
+		apisixClient.Logger.Errorf("[admin_api_to_yaml]parse template error,err:%s", err)
 		return "", "", err
 	}
 
 	value := map[string]string{"Value": string(ymlBytes)}
 	err = tmpl.Execute(&tpl, value)
 	if err != nil {
-		apisixClient.Logger.Errorf("[admin_api_to_yaml]template execute error,err:%s\n", err.Error())
+		apisixClient.Logger.Errorf("[admin_api_to_yaml]template execute error,err:%s", err)
 		return "", "", err
 	}
 
 	err = ioutil.WriteFile(filePath, tpl.Bytes(), 0644)
 	if err != nil {
-		apisixClient.Logger.Errorf("[admin_api_to_yaml]failed to write apisix.yaml ,err:%s\n", err.Error())
+		apisixClient.Logger.Errorf("[admin_api_to_yaml]failed to write apisix.yaml ,err:%s", err)
 		return "", "", err
 	}
 	return tpl.String(), filePath, nil

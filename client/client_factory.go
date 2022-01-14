@@ -146,7 +146,7 @@ func (syncer *Syncer) Run() {
 
 	services, err := syncer.DiscoveryClient.GetAllService(syncer.Config)
 	if err != nil {
-		syncer.Logger.Errorf("fetch discovery services failed,syncer:%+v", syncer)
+		syncer.Logger.Errorf("fetch discovery services failed,syncer:%#v", syncer)
 		panic(err)
 	}
 	var isExclude bool
@@ -181,14 +181,14 @@ func (syncer *Syncer) syncServiceInstances(service model.Service) {
 
 		syncer.Logger.Debugf("Sync serviceName:%s", service.Name)
 		if err != nil {
-			syncer.Logger.Errorf("fetch discovery %s failed,syncer:%+v", service.Name, syncer)
+			syncer.Logger.Errorf("fetch discovery %s failed,syncer:%#v,err:", service.Name, syncer, err)
 			panic(err)
 		}
 	}
 
 	gatewayInstances, err := syncer.GatewayClient.GetServiceAllInstances(syncer.getUpstreamName(service.Name))
 	if err != nil {
-		syncer.Logger.Errorf("fetch gateway %s failed,syncer:%+v", syncer.getUpstreamName(service.Name), syncer)
+		syncer.Logger.Errorf("fetch gateway %s failed,syncer:%#v,err:%s", syncer.getUpstreamName(service.Name), syncer, err)
 		panic(err)
 	}
 
@@ -243,13 +243,13 @@ func (syncer *Syncer) syncServiceInstances(service model.Service) {
 
 		err = syncer.GatewayClient.SyncInstances(syncer.getUpstreamName(service.Name), tpl, discoveryInstances, diffIns)
 		if err != nil {
-			syncer.Logger.Errorf("update gateway %s failed,discoveryInstances:%s,diffIns:%s,syncer:%+v",
-				syncer.getUpstreamName(service.Name), discoveryInstances, diffIns, syncer)
+			syncer.Logger.Errorf("update gateway %s failed,discoveryInstances:%s,diffIns:%s,syncer:%#v,err:%s",
+				syncer.getUpstreamName(service.Name), discoveryInstances, diffIns, syncer, err)
 			panic(err)
 		}
 	}
 
-	syncer.Logger.Infof("Sync serviceName:%s,diffIns:%+v", syncer.getUpstreamName(service.Name), diffIns)
+	syncer.Logger.Infof("Sync serviceName:%s,diffIns:%#v", syncer.getUpstreamName(service.Name), diffIns)
 }
 func (syncer *Syncer) getUpstreamName(serviceName string) string {
 	return syncer.UpstreamPrefix + "-" + serviceName

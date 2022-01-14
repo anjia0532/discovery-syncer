@@ -52,7 +52,7 @@ func (kongClient *KongClient) GetServiceAllInstances(upstreamName string) ([]mod
 	resp, err := hc.Do(req)
 
 	if err != nil {
-		kongClient.Logger.Errorf("fetch kong upstream error,%s", uri)
+		kongClient.Logger.Errorf("fetch kong upstream error, uri:%s, err:%s", uri, err)
 		return nil, err
 	}
 	kongClient.UpstreamIdMap[upstreamName] = resp.StatusCode
@@ -65,7 +65,7 @@ func (kongClient *KongClient) GetServiceAllInstances(upstreamName string) ([]mod
 	_, _ = io.Copy(ioutil.Discard, resp.Body)
 	_ = resp.Body.Close()
 	if err != nil {
-		kongClient.Logger.Errorf("fetch kong upstream and decode json error,%s", uri, err)
+		kongClient.Logger.Errorf("fetch kong upstream and decode json error, uri:%s, err:%s", uri, err)
 		return nil, err
 	}
 
@@ -115,14 +115,14 @@ func (kongClient *KongClient) SyncInstances(name string, tpl string, discoveryIn
 
 		tmpl, err := template.New("UpstreamKongTemplate").Parse(tpl)
 		if err != nil {
-			kongClient.Logger.Errorf("parse kong UpstreamTemplate failed,tmpl:%s", tmpl)
+			kongClient.Logger.Errorf("parse kong UpstreamTemplate failed, tmpl:%s, err:%s", tmpl, err)
 			return err
 		}
 		data := map[string]string{"Name": name}
 		err = tmpl.Execute(&buf, map[string]string{"Name": name})
 
 		if err != nil {
-			kongClient.Logger.Errorf("parse kong UpstreamTemplate failed,tmpl:%s,data:%+v", tmpl, data)
+			kongClient.Logger.Errorf("parse kong UpstreamTemplate failed, tmpl:%s, data:%#v,err:%s", tmpl, data, err)
 		} else {
 			body = buf.String()
 		}

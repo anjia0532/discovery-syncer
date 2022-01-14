@@ -49,7 +49,7 @@ func (nacosClient *NacosClient) GetAllService(data map[string]string) ([]model.S
 	uri := nacosClient.Config.Host + nacosClient.Config.Prefix + "ns/service/list?" + r.Encode()
 	resp, err := http.DefaultClient.Get(uri)
 	if err != nil {
-		nacosClient.Logger.Errorf("fetch nacos service error:%s", uri)
+		nacosClient.Logger.Errorf("fetch nacos service error, uri:%s,err:%s", uri, err)
 		return nil, errors.New("fetch nacos service error")
 	}
 	serviceResp := &model.NacosServiceResp{}
@@ -58,10 +58,10 @@ func (nacosClient *NacosClient) GetAllService(data map[string]string) ([]model.S
 	_, _ = io.Copy(ioutil.Discard, resp.Body)
 	_ = resp.Body.Close()
 	if err != nil {
-		nacosClient.Logger.Errorf("fetch nacos service error:%s", uri)
+		nacosClient.Logger.Errorf("fetch nacos service error, uri:%s,err:%s", uri, err)
 		return nil, errors.New("fetch nacos service error")
 	}
-	nacosClient.Logger.Debugf("fetch nacos service,uri:%s,%#v", uri, serviceResp)
+	nacosClient.Logger.Debugf("fetch nacos service,uri, uri:%s, serviceResp:%#v", uri, serviceResp)
 	services := []model.Service{}
 	for _, name := range serviceResp.ServiceNames {
 		services = append(services, model.Service{Name: name})
@@ -96,7 +96,7 @@ func (nacosClient *NacosClient) GetServiceAllInstances(vo model.GetInstanceVo) (
 	resp, err := hc.Do(req)
 
 	if err != nil {
-		nacosClient.Logger.Errorf("fetch nacos service instance error:%s", uri)
+		nacosClient.Logger.Errorf("fetch nacos service instance error, uri:%s, err:%s", uri, err)
 		return nil, errors.New("fetch nacos service instance error")
 	}
 
@@ -106,10 +106,10 @@ func (nacosClient *NacosClient) GetServiceAllInstances(vo model.GetInstanceVo) (
 	_, _ = io.Copy(ioutil.Discard, resp.Body)
 	_ = resp.Body.Close()
 	if err != nil {
-		nacosClient.Logger.Errorf("fetch nacos service instance error:%s", uri)
+		nacosClient.Logger.Errorf("fetch nacos service instance error, uri:%s, err:%s", uri, err)
 		return nil, errors.New("fetch nacos service instance error")
 	}
-	nacosClient.Logger.Debugf("fetch nacos service:%s,instances:%+v", uri, nacosResp.Hosts)
+	nacosClient.Logger.Debugf("fetch nacos service:%s,instances:%#v", uri, nacosResp.Hosts)
 	instances := []model.Instance{}
 	for _, host := range nacosResp.Hosts {
 		instance := model.Instance{
@@ -149,7 +149,7 @@ func (nacosClient *NacosClient) ModifyRegistration(registration model.Registrati
 		r.Set("serviceName", registration.ServiceName)
 		metadata, err := json.Marshal(instance.Metadata)
 		if err != nil {
-			nacosClient.Logger.Errorf("convert metadata to json failed,%#v", instance)
+			nacosClient.Logger.Errorf("convert metadata to json failed, instance:%#v, err:%s", instance, err)
 			continue
 		}
 		r.Set("metadata", string(metadata))
@@ -161,15 +161,14 @@ func (nacosClient *NacosClient) ModifyRegistration(registration model.Registrati
 		req.Header.Add("Accept", "application/json")
 		resp, err := hc.Do(req)
 		if err != nil {
-			nacosClient.Logger.Errorf("update nacos instance error:%v", instance)
+			nacosClient.Logger.Errorf("update nacos instance error, instance:%#v, err:%s", instance, err)
 			continue
 		}
 		body, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
-			nacosClient.Logger.Errorf("update nacos instance error:%v,body:%s", instance, body)
+			nacosClient.Logger.Errorf("update nacos instance error, instance:%#v, body:%s, err:%s", instance, body, err)
 			continue
 		}
-
 		_, _ = io.Copy(ioutil.Discard, resp.Body)
 		_ = resp.Body.Close()
 	}
