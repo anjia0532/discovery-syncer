@@ -58,7 +58,8 @@ func main() {
 	r.Handle("/", http.HandlerFunc(indexHandler))
 	r.HandleFunc("/-/reload", reloadHandler)
 	r.HandleFunc("/health", healthHandler)
-	r.HandleFunc("/discovery/{name}", discoveryHandler)
+	r.HandleFunc("/discovery/{discovery-name}", discoveryHandler)
+	r.HandleFunc("/gateway-api-to-file/{gateway-name}", gatewayAdminApiToFile)
 
 	if err == nil {
 		// default is false
@@ -138,11 +139,33 @@ func healthHandler(w http.ResponseWriter, _ *http.Request) {
 	_, _ = fmt.Fprintf(w, "%s", data)
 }
 
+func gatewayAdminApiToFile(writer http.ResponseWriter, request *http.Request) {
+	vars := mux.Vars(request)
+	gatewayName := vars["gateway-name"]
+
+	gateway, ok := client.GetGatewayClient(gatewayName)
+	if !ok {
+		writer.WriteHeader(http.StatusNotFound)
+		_, _ = fmt.Fprintf(writer, "Not Found")
+		return
+	}
+	writer.Header().Set("Content-Type", "text/plain")
+	content, filePath, err := gateway.FetchAdminApiToFile()
+	if err != nil {
+		writer.WriteHeader(http.StatusInternalServerError)
+		writer.Header().Set("syncer-err-msg", err.Error())
+	} else {
+		writer.Header().Set("syncer-file-location", filePath)
+		writer.WriteHeader(http.StatusOK)
+	}
+	_, _ = fmt.Fprintf(writer, "%s", content)
+}
 func discoveryHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	name := vars["name"]
+	name := vars["discovery-name"]
 	discovery, ok := client.GetDiscoveryClient(name)
 	if !ok {
+		w.WriteHeader(http.StatusNotFound)
 		_, _ = fmt.Fprintf(w, "Not Found")
 		return
 	}

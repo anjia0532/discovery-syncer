@@ -18,10 +18,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/anjia0532/apisix-discovery-syncer/model"
+	"github.com/ghodss/yaml"
 	go_logger "github.com/phachon/go-logger"
 	"io"
 	"io/ioutil"
 	"net/http"
+	"os"
+	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -175,4 +179,132 @@ func (apisixClient *ApisixClient) SyncInstances(name string, tpl string, discove
 	_, _ = io.Copy(ioutil.Discard, resp.Body)
 	_ = resp.Body.Close()
 	return err
+}
+
+func (apisixClient *ApisixClient) fetchInfoFromApisix(uri string) (model.ApisixResp, error) {
+	hc := &http.Client{Timeout: 30 * time.Second}
+	apisixResp := model.ApisixResp{}
+	var plugins []string
+
+	url := apisixClient.Config.AdminUrl + apisixClient.Config.Prefix + uri
+	req, _ := http.NewRequest("GET", url, nil)
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("X-API-KEY", apisixClient.Config.Config["X-API-KEY"])
+	resp, err := hc.Do(req)
+
+	if err != nil {
+		apisixClient.Logger.Errorf("[admin_api_to_yaml]fetch apisix info error,url:%s,err:%s", url, err.Error())
+		return apisixResp, err
+	}
+
+	// plugins_list need to convert
+	if strings.Contains(uri, "plugins/list") {
+		plugins = []string{}
+		err = json.NewDecoder(resp.Body).Decode(&plugins)
+	} else {
+		err = json.NewDecoder(resp.Body).Decode(&apisixResp)
+	}
+	_ = resp.Body.Close()
+	if err != nil {
+		apisixClient.Logger.Errorf("[admin_api_to_yaml]decode body to struct error,url,%s,err:%s\n", url, err.Error())
+		return apisixResp, err
+	}
+	apisixResp.Node.Nodes = []map[string]interface{}{}
+	if len(plugins) > 0 {
+		// plugins/list
+		for _, pluginName := range plugins {
+			apisixPlugin := map[string]interface{}{"name": pluginName}
+			if pluginName == "mqtt-proxy" || "dubbo-proxy" == pluginName {
+				apisixPlugin["stream"] = true
+			}
+			apisixResp.Node.Nodes = append(apisixResp.Node.Nodes, apisixPlugin)
+		}
+	} else {
+		// get resp.node.nodes[].value
+		switch n := apisixResp.Node.TNodes.(type) {
+		case []interface{}:
+			for _, node := range n {
+				switch b := node.(type) {
+				case map[string]interface{}:
+					val, ok := b["value"]
+					if ok {
+						apisixResp.Node.Nodes = append(apisixResp.Node.Nodes, val.(map[string]interface{}))
+					}
+				}
+			}
+			break
+		default:
+			break
+		}
+	}
+	return apisixResp, nil
+}
+
+var ApisixConfigTemplate = `
+# Auto generate by https://github.com/anjia0532/discovery-syncer, Don't Modify
+
+{{.Value}}
+#END
+`
+var filePath = filepath.Join(os.TempDir(), "apisix.yaml")
+
+func (apisixClient *ApisixClient) FetchAdminApiToFile() (string, string, error) {
+	var tpl bytes.Buffer
+	//"plugin_configs",
+	uris := map[string]string{
+		"routes":          "Routes",
+		"services":        "Services",
+		"upstreams":       "Upstreams",
+		"plugins/list":    "Plugins",
+		"ssl":             "Ssl",
+		"global_rules":    "GlobalRules",
+		"consumers":       "Consumers",
+		"plugin_metadata": "PluginMetadata",
+		"stream_routes":   "stream_routes",
+	}
+
+	apisixConfig := model.ApisixConfig{}
+	for uri, field := range uris {
+		apisixResp, err := apisixClient.fetchInfoFromApisix(uri)
+		if err != nil {
+			apisixClient.Logger.Errorf("[admin_api_to_yaml]fetchInfoFromApisix error,uri,%s,err:%s\n", uri, err.Error())
+			continue
+		}
+		v := reflect.ValueOf(&apisixConfig).Elem()
+		if f := v.FieldByName(field); f.IsValid() {
+			f.Set(reflect.ValueOf(apisixResp.Node.Nodes))
+		}
+	}
+
+	jsonByte, err := json.Marshal(apisixConfig)
+	if err != nil {
+		apisixClient.Logger.Errorf("[admin_api_to_yaml]convert struct to json error,err:%s\n", err.Error())
+		return "", "", err
+	}
+
+	ymlBytes, err := yaml.JSONToYAML(jsonByte)
+	if err != nil {
+		apisixClient.Logger.Errorf("[admin_api_to_yaml]convert json to yaml error,err:%s\n", err.Error())
+		return "", "", err
+	}
+
+	tmpl, err := template.New("ApisixConfigTemplate").Parse(ApisixConfigTemplate)
+	if err != nil {
+		apisixClient.Logger.Errorf("[admin_api_to_yaml]parse template error,err:%s\n", err.Error())
+		return "", "", err
+	}
+
+	value := map[string]string{"Value": string(ymlBytes)}
+	err = tmpl.Execute(&tpl, value)
+	if err != nil {
+		apisixClient.Logger.Errorf("[admin_api_to_yaml]template execute error,err:%s\n", err.Error())
+		return "", "", err
+	}
+
+	err = ioutil.WriteFile(filePath, tpl.Bytes(), 0644)
+	if err != nil {
+		apisixClient.Logger.Errorf("[admin_api_to_yaml]failed to write apisix.yaml ,err:%s\n", err.Error())
+		return "", "", err
+	}
+	return tpl.String(), filePath, nil
 }

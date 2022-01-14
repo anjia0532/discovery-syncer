@@ -80,3 +80,24 @@ func (c *ApisixNodeResp) UnmarshalJSON(data []byte) error {
 
 	return nil
 }
+
+type ApisixResp struct {
+	Node struct {
+		Dir    bool                     `json:"dir" yaml:"dir"`
+		Key    string                   `json:"key" yaml:"key"`
+		TNodes interface{}              `json:"nodes,omitempty"`
+		Nodes  []map[string]interface{} `yaml:"nodes"`
+	} `json:"node" yaml:"node"`
+}
+
+type ApisixConfig struct {
+	Routes         interface{} `json:"routes,omitempty" yaml:"routes,omitempty"`
+	Services       interface{} `json:"services,omitempty" yaml:"services,omitempty"`
+	Upstreams      interface{} `json:"upstreams,omitempty" yaml:"upstreams,omitempty"`
+	Plugins        interface{} `json:"plugins,omitempty" yaml:"plugins,omitempty"`
+	Ssl            interface{} `json:"ssl,omitempty" yaml:"ssl,omitempty"`
+	GlobalRules    interface{} `json:"global_rules,omitempty" yaml:"global_rules,omitempty"`
+	Consumers      interface{} `json:"consumers,omitempty" yaml:"consumers,omitempty"`
+	PluginMetadata interface{} `json:"plugin_metadata,omitempty" yaml:"plugin_metadata,omitempty"`
+	StreamRoutes   interface{} `json:"stream_routes,omitempty" yaml:"stream_routes,omitempty"`
+}

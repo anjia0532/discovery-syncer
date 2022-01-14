@@ -16,6 +16,7 @@ package gateway
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/anjia0532/apisix-discovery-syncer/model"
 	go_logger "github.com/phachon/go-logger"
@@ -172,4 +173,9 @@ func (kongClient *KongClient) SyncInstances(name string, tpl string, discoveryIn
 		}
 	}
 	return nil
+}
+
+func (kongClient *KongClient) FetchAdminApiToFile() (string, string, error) {
+
+	return "", "", errors.New("Unrealized")
 }

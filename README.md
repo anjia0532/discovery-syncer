@@ -26,7 +26,7 @@ Flags:
 ### 通过docker运行
 
 ```bash
-docker run anjia0532/discovery-syncer:v1.0.5
+docker run anjia0532/discovery-syncer:v1.1.0
 ```
 
 特别的，`-c ` 支持配置远端http[s]的地址，比如读取静态资源的，比如读取nacos的 `-c
@@ -178,12 +178,13 @@ targets:
 
 ### Api接口
 
-| 路径                      | 返回值  | 用途                                                     |
-|-------------------------|:-----|:-------------------------------------------------------|
-| `GET /`                 | `OK` | 服务是否启动                                                 |
-| `GET /-/reload`         | `OK` | 重新加载配置文件，加载成功返回OK，主要是cicd场景或者k8s的configmap reload 场景使用 |
-| `GET /health`           | JSON | 判断服务是否健康，可以配合k8s等容器服务的健康检查使用                           |
-| `PUT /discovery/{name}` | `OK` | 主动下线上线注册中心的服务,配合CI/CD发版业务用                             |
+| 路径                                        | 返回值        | 用途                                                              |
+|-------------------------------------------|:-----------|:----------------------------------------------------------------|
+| `GET /`                                   | `OK`       | 服务是否启动                                                          |
+| `GET /-/reload`                           | `OK`       | 重新加载配置文件，加载成功返回OK，主要是cicd场景或者k8s的configmap reload 场景使用          |
+| `GET /health`                             | JSON       | 判断服务是否健康，可以配合k8s等容器服务的健康检查使用                                    |
+| `PUT /discovery/{discovery-name}`         | `OK`       | 主动下线上线注册中心的服务,配合CI/CD发版业务用                                      |
+| `GET /gateway-api-to-file/{gateway-name}` | text/plain | 读取网关admin api转换成文件用于备份或者db-less模式                               |
 
 `GET /health` 的返回值
 
@@ -208,7 +209,7 @@ targets:
 
 ```
 
-`PUT /discovery/{name}` 中的name是注册中心的名字，如果不存在，则返回 `Not Found`
+`PUT /discovery/{discovery-name}` 中的name是注册中心的名字，如果不存在，则返回 `Not Found` http status code 是404
 
 body入参
 
@@ -231,6 +232,17 @@ body入参
     }
 }
 ```
+
+`GET /gateway-api-to-file/{gateway-name}` 中的gateway-name是网关的名字，如果不存在，则返回 `Not Found`，http status code 是404
+
+如果服务报错，resp body 会返回空字符串，header 中的 `syncer-err-msg` 会返回具体原因 http status code 是500
+
+如果正常，resp body 会返回转换后的文本内容，`syncer-file-location` 会返回syncer服务端的路径(一般是系统临时目录+文件名，例如`/tmp/apisix.yaml`)， http status
+code是200
+
+**注意**
+
+精力有限，目前仅实现了apisix的admin api转yaml功能，kong的未实现，有需要的，欢迎提PR贡献代码或者提issues来反馈
 
 ## 待优化点
 

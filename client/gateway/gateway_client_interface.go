@@ -21,4 +21,6 @@ type GatewayClient interface {
 	GetServiceAllInstances(upstreamName string) ([]model.Instance, error)
 
 	SyncInstances(name string, tpl string, discoveryInstances []model.Instance, diffIns []model.Instance) error
+
+	FetchAdminApiToFile() (string, string, error)
 }

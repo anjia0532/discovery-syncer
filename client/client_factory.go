@@ -77,6 +77,11 @@ func GetDiscoveryClient(name string) (discovery.DiscoveryClient, bool) {
 	return client, ok
 }
 
+func GetGatewayClient(gatewayName string) (gateway.GatewayClient, bool) {
+	client, ok := gatewayClientMap[gatewayName]
+	return client, ok
+}
+
 func GetHealthMap() map[string]int64 {
 	return healthMap
 }
