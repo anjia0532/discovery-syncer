@@ -98,6 +98,8 @@ targets:
         exclude-service: [ 'ex*','test' ]
         # 同步到网关的upstream的名字的前缀，便于管理
         upstream-prefix: nacos1
+        # 本次同步唯一key，为空则是discovery-gateway
+        name: nacos1-apisix1
         # 对于health检查时，超过限定秒数的，认为是失联状态，默认是10秒
         maximum-interval-sec: 20
         # 扩展参数
