@@ -120,7 +120,10 @@ func CreateSyncer(config *model.Config, logger *go_logger.Logger) (syncers []Syn
 			Key:                target.Name,
 		}
 		if len(syncer.UpstreamPrefix) == 0 {
-			syncer.UpstreamPrefix = target.Discovery
+			syncer.UpstreamPrefix = target.UpstreamPrefix
+			if len(syncer.UpstreamPrefix) == 0 {
+				syncer.UpstreamPrefix = target.Discovery
+			}
 		}
 		syncers = append(syncers, syncer)
 
