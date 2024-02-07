@@ -27,7 +27,7 @@ Flags:
 ### 通过docker运行
 
 ```bash
-docker run anjia0532/discovery-syncer:v1.1.0
+docker run anjia0532/discovery-syncer:v2.0.0
 ```
 
 特别的，`-c ` 支持配置远端http[s]的地址，比如读取静态资源的，比如读取nacos的 `-c
