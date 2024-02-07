@@ -16,17 +16,17 @@ package gateway
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/anjia0532/apisix-discovery-syncer/model"
 	"github.com/ghodss/yaml"
 	go_logger "github.com/phachon/go-logger"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
 	"reflect"
-	"strconv"
+	"slices"
 	"strings"
 	"sync"
 	"text/template"
@@ -36,65 +36,35 @@ import (
 type ApisixClient struct {
 	Client        http.Client
 	Config        model.Gateway
-	UpstreamIdMap map[string]string
+	ApiVersion    model.ApisixAdminApiVersion
+	UpstreamIdMap map[string]string // upstream name
 	Logger        *go_logger.Logger
 	mutex         sync.Mutex
 }
 
 var fetchAllUpstream = "upstreams"
 
-func (apisixClient *ApisixClient) GetServiceAllInstances(upstreamName string) ([]model.Instance, error) {
-	apisixClient.mutex.Lock()
-	if apisixClient.UpstreamIdMap == nil {
-		apisixClient.UpstreamIdMap = make(map[string]string)
-	}
-	upstreamId, ok := apisixClient.UpstreamIdMap[upstreamName]
-	if !ok {
-		upstreamId = fetchAllUpstream
-	}
+var filePath = filepath.Join(os.TempDir(), "apisix.yaml")
 
-	uri := apisixClient.Config.AdminUrl + apisixClient.Config.Prefix + upstreamId
-	hc := &http.Client{Timeout: 30 * time.Second}
+var ApisixConfigTemplate = `
+# Auto generate by https://github.com/anjia0532/discovery-syncer, Don't Modify
 
-	req, _ := http.NewRequest("GET", uri, nil)
-	req.Header.Add("Accept", "application/json")
-	req.Header.Add("X-API-KEY", apisixClient.Config.Config["X-API-KEY"])
-	resp, err := hc.Do(req)
+# apisix 2.x modify conf/config.yaml https://apisix.apache.org/docs/apisix/2.15/stand-alone/
+# apisix:
+#  enable_admin: false
+#  config_center: yaml
 
-	if err != nil {
-		apisixClient.Logger.Errorf("fetch apisix upstream error,%s", uri)
-		return nil, err
-	}
+# apisix 3.x modify conf/config.yaml https://apisix.apache.org/docs/apisix/3.2/deployment-modes/#standalone
+# deployment:
+#  role: data_plane
+#  role_data_plane:
+#    config_provider: yaml
 
-	apisixResp := model.ApisixNodeResp{}
-	err = json.NewDecoder(resp.Body).Decode(&apisixResp)
-	_, _ = io.Copy(ioutil.Discard, resp.Body)
-	_ = resp.Body.Close()
-	if err != nil {
-		apisixClient.Logger.Errorf("fetch apisix upstream and decode json error,", uri, err)
-		return nil, err
-	}
+# save as conf/apisix.yaml
 
-	instances := []model.Instance{}
-	if upstreamId != fetchAllUpstream {
-		apisixResp.Node.Nodes = append(apisixResp.Node.Nodes, apisixResp.Node)
-	}
-	for _, node := range apisixResp.Node.Nodes {
-		apisixClient.UpstreamIdMap[node.Value.Name] = fmt.Sprintf("%s/%s", fetchAllUpstream, node.Value.Id)
-		if upstreamName != node.Value.Name {
-			continue
-		}
-		for host, weight := range node.Value.Nodes {
-			ts := strings.Split(host, ":")
-			p, _ := strconv.Atoi(ts[1])
-			instance := model.Instance{Weight: float32(weight), Ip: ts[0], Port: p}
-			instances = append(instances, instance)
-		}
-	}
-	apisixClient.mutex.Unlock()
-	apisixClient.Logger.Debugf("fetch apisix upstream:%s,instances:%#v", uri, instances)
-	return instances, nil
-}
+{{.Value}}
+#END
+`
 
 var DefaultApisixUpstreamTemplate = `
 {
@@ -109,6 +79,49 @@ var DefaultApisixUpstreamTemplate = `
     "desc": "auto sync by https://github.com/anjia0532/discovery-syncer"
 }
 `
+
+func (apisixClient *ApisixClient) GetServiceAllInstances(upstreamName string) ([]model.Instance, error) {
+	apisixClient.mutex.Lock()
+	if apisixClient.UpstreamIdMap == nil {
+		apisixClient.UpstreamIdMap = make(map[string]string)
+	}
+	upstreamId, ok := apisixClient.UpstreamIdMap[upstreamName]
+	if !ok {
+		upstreamId = fetchAllUpstream
+	}
+
+	instances := []model.Instance{}
+	aNode, _, err := apisixClient.httpDo(upstreamId, "GET", nil)
+
+	if err != nil {
+		apisixClient.Logger.Errorf("fetch apisix upstream: %s failed", upstreamId)
+		return instances, err
+	}
+
+	for _, node := range aNode.AList {
+		if nil == node.Value {
+			continue
+		}
+		upstream := model.AUpstream{
+			Id:   node.Value["id"].(string),
+			Name: node.Value["name"].(string),
+		}
+		for _, n := range node.Value["nodes"].([]interface{}) {
+			upstream.Nodes = append(upstream.Nodes, n.(map[string]interface{}))
+		}
+		apisixClient.UpstreamIdMap[upstream.Name] = fmt.Sprintf("%s/%s", fetchAllUpstream, upstream.Id)
+		if upstreamName != upstream.Name {
+			continue
+		}
+		for _, n := range upstream.Nodes {
+			instance := model.Instance{Weight: float32(n["weight"].(float64)), Ip: n["host"].(string), Port: n["port"].(int)}
+			instances = append(instances, instance)
+		}
+	}
+	apisixClient.mutex.Unlock()
+	apisixClient.Logger.Debugf("fetch apisix upstream:%s,instances:%#v", upstreamId, instances)
+	return instances, nil
+}
 
 func (apisixClient *ApisixClient) SyncInstances(name string, tpl string, discoveryInstances []model.Instance,
 	diffIns []model.Instance) error {
@@ -152,137 +165,44 @@ func (apisixClient *ApisixClient) SyncInstances(name string, tpl string, discove
 		body = string(nodesJson)
 	}
 
-	uri := apisixClient.Config.AdminUrl + apisixClient.Config.Prefix + upstreamId
-	hc := &http.Client{Timeout: 30 * time.Second}
-
-	req, _ := http.NewRequest(method, uri, bytes.NewBufferString(body))
-
-	req.Header.Add("Accept", "application/json")
-	req.Header.Add("X-API-KEY", apisixClient.Config.Config["X-API-KEY"])
-	resp, err := hc.Do(req)
-
-	respRawByte, _ := io.ReadAll(resp.Body)
+	respRawByte, url, _ := apisixClient.httpDoRaw(upstreamId, method, bytes.NewBufferString(body))
 
 	apisixClient.Logger.Debugf("update apisix upstream uri:%s,method:%s,body:%s,resp:%s",
-		uri, method, body, respRawByte)
+		url, method, body, respRawByte)
 
 	if err != nil {
 		apisixClient.Logger.Errorf("update apisix upstream uri:%s,method:%s,body:%s,resp:%s failed",
-			uri, method, body, respRawByte)
+			url, method, body, respRawByte)
 		return err
 	}
-	if resp.StatusCode >= 400 {
-		apisixClient.Logger.Errorf("update apisix upstream uri:%s,method:%s,body:%s,resp:%s failed",
-			uri, method, body, respRawByte)
-		return nil
-	}
-	_, _ = io.Copy(ioutil.Discard, resp.Body)
-	_ = resp.Body.Close()
+
 	return err
 }
 
-func (apisixClient *ApisixClient) fetchInfoFromApisix(uri string) (model.ApisixResp, error) {
-	hc := &http.Client{Timeout: 30 * time.Second}
-	apisixResp := model.ApisixResp{}
-	var plugins []string
-
-	url := apisixClient.Config.AdminUrl + apisixClient.Config.Prefix + uri
-	req, _ := http.NewRequest("GET", url, nil)
-	req.Header.Add("Accept", "application/json")
-	req.Header.Add("X-API-KEY", apisixClient.Config.Config["X-API-KEY"])
-	resp, err := hc.Do(req)
-
-	if err != nil {
-		apisixClient.Logger.Errorf("[admin_api_to_yaml]fetch apisix info error,url:%s,err:%s", url, err.Error())
-		return apisixResp, err
-	}
-
-	// plugins_list need to convert
-	if strings.Contains(uri, "plugins/list") {
-		plugins = []string{}
-		err = json.NewDecoder(resp.Body).Decode(&plugins)
-	} else {
-		err = json.NewDecoder(resp.Body).Decode(&apisixResp)
-	}
-	_ = resp.Body.Close()
-	if err != nil {
-		apisixClient.Logger.Errorf("[admin_api_to_yaml]decode body to struct error,url,%s,err:%s\n", url, err.Error())
-		return apisixResp, err
-	}
-	apisixResp.Node.Nodes = []map[string]interface{}{}
-	if len(plugins) > 0 {
-		// plugins/list
-		for _, pluginName := range plugins {
-			apisixPlugin := map[string]interface{}{"name": pluginName}
-			if pluginName == "mqtt-proxy" || "dubbo-proxy" == pluginName {
-				apisixPlugin["stream"] = true
-			}
-			apisixResp.Node.Nodes = append(apisixResp.Node.Nodes, apisixPlugin)
-		}
-	} else {
-		// get resp.node.nodes[].value
-		switch n := apisixResp.Node.TNodes.(type) {
-		case []interface{}:
-			for _, node := range n {
-				switch b := node.(type) {
-				case map[string]interface{}:
-					val, ok := b["value"]
-					if ok {
-						apisixResp.Node.Nodes = append(apisixResp.Node.Nodes, val.(map[string]interface{}))
-					}
-				}
-			}
-			break
-		default:
-			break
-		}
-	}
-	return apisixResp, nil
-}
-
-var ApisixConfigTemplate = `
-# Auto generate by https://github.com/anjia0532/discovery-syncer, Don't Modify
-
-{{.Value}}
-#END
-`
-var filePath = filepath.Join(os.TempDir(), "apisix.yaml")
-
 func (apisixClient *ApisixClient) FetchAdminApiToFile() (string, string, error) {
 	var tpl bytes.Buffer
-	//"plugin_configs",
-	uris := map[string]string{
-		"routes":          "Routes",
-		"services":        "Services",
-		"upstreams":       "Upstreams",
-		"plugins/list":    "Plugins",
-		"ssl":             "Ssl",
-		"global_rules":    "GlobalRules",
-		"consumers":       "Consumers",
-		"plugin_metadata": "PluginMetadata",
-		"stream_routes":   "stream_routes",
-	}
 
 	apisixConfig := model.ApisixConfig{}
-	for uri, field := range uris {
-		apisixResp, err := apisixClient.fetchInfoFromApisix(uri)
+
+	for uri, field := range model.ApisixUris {
+		if !slices.Contains(field.Version, apisixClient.ApiVersion) {
+			continue
+		}
+
+		Nodes, err := apisixClient.fetchInfoFromApisix(uri)
+
 		if err != nil {
 			apisixClient.Logger.Errorf("[admin_api_to_yaml]fetchInfoFromApisix error,uri,%s,err:%s", uri, err)
 			continue
 		}
+
 		v := reflect.ValueOf(&apisixConfig).Elem()
-		if f := v.FieldByName(field); f.IsValid() {
-			f.Set(reflect.ValueOf(apisixResp.Node.Nodes))
+		if f := v.FieldByName(field.Field); f.IsValid() {
+			f.Set(reflect.ValueOf(Nodes))
 		}
 	}
 
-	jsonByte, err := json.Marshal(apisixConfig)
-	if err != nil {
-		apisixClient.Logger.Errorf("[admin_api_to_yaml]convert struct to json error,err:%s", err)
-		return "", "", err
-	}
-
-	ymlBytes, err := yaml.JSONToYAML(jsonByte)
+	ymlBytes, err := yaml.Marshal(apisixConfig)
 	if err != nil {
 		apisixClient.Logger.Errorf("[admin_api_to_yaml]convert json to yaml error,err:%s", err)
 		return "", "", err
@@ -301,10 +221,128 @@ func (apisixClient *ApisixClient) FetchAdminApiToFile() (string, string, error) 
 		return "", "", err
 	}
 
-	err = ioutil.WriteFile(filePath, tpl.Bytes(), 0644)
+	err = os.WriteFile(filePath, tpl.Bytes(), 0644)
 	if err != nil {
 		apisixClient.Logger.Errorf("[admin_api_to_yaml]failed to write apisix.yaml ,err:%s", err)
 		return "", "", err
 	}
 	return tpl.String(), filePath, nil
+}
+
+var (
+	ignoreUris = []string{"plugins/list"}
+	aliaseUrls = map[string]string{"ssl": "ssls", "proto": "protos", "ssls": "ssl", "protos": "proto"}
+)
+
+func (apisixClient *ApisixClient) MigrateTo(gateway GatewayClient) error {
+	// 拉取 origin 网关配置
+	// 拉取 目标 网关配置
+	// 仅创建/创建或更新
+	targetApisixClient, ok := gateway.(*ApisixClient)
+	if !ok {
+		return errors.New("Target GatewayClient is not ApisixClient")
+	}
+
+	for uri, field := range model.ApisixUris {
+		if slices.Contains(ignoreUris, uri) || !slices.Contains(field.Version, apisixClient.ApiVersion) {
+			continue
+		}
+		// 拉取原网关数据
+		resp, url, err := apisixClient.httpDo(uri, "GET", nil)
+		if err != nil {
+			apisixClient.Logger.Errorf("[migrate]fetch origin apisix info error,url:%s,err:%s", url, err.Error())
+			continue
+		}
+		apisixClient.Logger.Infof("fetch origin apisix info success,url:%s,%#v", url, resp)
+
+		auri, ok := aliaseUrls[uri]
+
+		if !ok {
+			auri = uri
+		}
+
+		for _, node := range resp.AList {
+			if nil == node.Value {
+				continue
+			}
+			reqBody, _ := node.Translate(targetApisixClient.ApiVersion)
+			id := node.Value["id"].(string)
+			// 更新或者创建
+			respBody, url, err := targetApisixClient.httpDoRaw(auri+"/"+id, "PUT", bytes.NewReader(reqBody))
+			if err != nil {
+				apisixClient.Logger.Errorf("[migrate]create target apisix info error,url:%s,err:%s", url, err.Error())
+				continue
+			}
+			apisixClient.Logger.Infof("[migrate]save or update target apisix info,url:%s, %s", url, respBody)
+		}
+	}
+	return nil
+}
+
+func (apisixClient *ApisixClient) fetchInfoFromApisix(uri string) ([]map[string]interface{}, error) {
+
+	var plugins []string
+	var url string
+	var err error
+	aNode := model.ANode{}
+
+	if strings.Contains(uri, "plugins/list") {
+		var resp []byte
+		resp, url, err = apisixClient.httpDoRaw(uri, "GET", nil)
+		plugins = []string{}
+		err = json.Unmarshal(resp, &plugins)
+		for _, plugin := range plugins {
+			// TODO /apisix/admin/plugins?all=true&subsystem=stream 会返回所有stream plugins
+			aNode.AList = append(aNode.AList, model.ANode{Value: map[string]interface{}{"name": plugin}})
+		}
+	} else {
+		aNode, url, err = apisixClient.httpDo(uri, "GET", nil)
+	}
+
+	if err != nil {
+		apisixClient.Logger.Errorf("[admin_api_to_yaml]fetch apisix info error,url:%s,err:%s", url, err.Error())
+		return nil, err
+	}
+	nodes := []map[string]interface{}{}
+	for _, node := range aNode.AList {
+		if nil == node.Value {
+			continue
+		}
+		nodes = append(nodes, node.Value)
+	}
+	return nodes, nil
+}
+
+func (apisixClient *ApisixClient) httpDoRaw(uri string, method string, body io.Reader) ([]byte, string, error) {
+	url := apisixClient.Config.AdminUrl + apisixClient.Config.Prefix + uri
+	hc := &http.Client{Timeout: 30 * time.Second}
+
+	req, _ := http.NewRequest(method, url, body)
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("X-API-KEY", apisixClient.Config.Config["X-API-KEY"])
+	resp, err := hc.Do(req)
+	var respBytes []byte
+	if err != nil {
+		apisixClient.Logger.Errorf("access apisix error,%s", url)
+		return []byte{}, url, err
+	}
+	respBytes, _ = io.ReadAll(resp.Body)
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			apisixClient.Logger.Errorf("close resp.Body error,%s", err.Error())
+		}
+	}(resp.Body)
+	return respBytes, url, nil
+}
+
+func (apisixClient *ApisixClient) httpDo(uri string, method string, body io.Reader) (model.ANode, string, error) {
+	respBody, url, err := apisixClient.httpDoRaw(uri, method, body)
+	resp := model.ANode{}
+	err = resp.UnmarshalJSON(respBody, apisixClient.ApiVersion)
+	if err != nil {
+		apisixClient.Logger.Errorf("apisix respone decode error,%s,%s", url, err.Error())
+		return model.ANode{}, url, err
+	}
+	return resp, url, nil
 }

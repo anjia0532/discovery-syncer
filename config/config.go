@@ -47,7 +47,7 @@ func LoadFile(filename string) (*model.Config, error) {
 			return nil, errors.New(fmt.Sprintf("discovery %s not exist", target.Discovery))
 		}
 		if _, ok := cfg.GatewayServers[target.Gateway]; !ok {
-			return nil, errors.New(fmt.Sprintf("gateway %s not exist", target.Discovery))
+			return nil, errors.New(fmt.Sprintf("gateway %s not exist", target.Gateway))
 		}
 	}
 	return cfg, nil

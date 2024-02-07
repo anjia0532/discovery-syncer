@@ -39,7 +39,7 @@ targets:
             namespaceId: test
             template: |
                 {
-                    "id": "syncer-{{.Name}}",
+                    "id": "{{.Name}}",
                     "timeout": {
                         "connect": 30,
                         "send": 30,

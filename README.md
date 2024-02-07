@@ -1,7 +1,8 @@
 # 多端注册中心网关同步工具
 
 支持从nacos(已实现)，eureka(已实现)等注册中心同步到apisix(已实现)和kong(已实现)
-等网关，后续将支持自定义插件，支持用户自己用golang实现支持类似携程阿波罗注册中心，etcd注册中心，consul注册中心等插件，以及spring gateway等网关插件的高扩展性
+等网关，后续将支持自定义插件，支持用户自己用golang实现支持类似携程阿波罗注册中心，etcd注册中心，consul注册中心等插件，以及spring
+gateway等网关插件的高扩展性
 
 ## 快速开始
 
@@ -76,6 +77,9 @@ gateway-servers:
         # 特别的扩展参数，在config里用key:value形式添加
         config:
             X-API-KEY: xxxxx
+            # apisix admin api 目前2.15.x 和 3.x 差异较大 详见 https://apisix.apache.org/zh/docs/apisix/next/upgrade-guide-from-2.15.x-to-3.0.0/
+            # 默认是v2，如果是3.x的，请改成v3
+            version: v2
     kong1:
         type: kong
         admin-url: http://kong-server:8001
@@ -111,7 +115,7 @@ targets:
             # 创建到apisix 的upstream的默认模板，具体支持的模板语法，自行搜索 golang text/template
             template: |
                 {
-                    "id": "syncer-{{.Name}}",
+                    "id": "{{.Name}}",
                     "timeout": {
                         "connect": 30,
                         "send": 30,
@@ -180,13 +184,14 @@ targets:
 
 ### Api接口
 
-| 路径                                        | 返回值        | 用途                                                              |
-|-------------------------------------------|:-----------|:----------------------------------------------------------------|
-| `GET /`                                   | `OK`       | 服务是否启动                                                          |
-| `GET /-/reload`                           | `OK`       | 重新加载配置文件，加载成功返回OK，主要是cicd场景或者k8s的configmap reload 场景使用          |
-| `GET /health`                             | JSON       | 判断服务是否健康，可以配合k8s等容器服务的健康检查使用                                    |
-| `PUT /discovery/{discovery-name}`         | `OK`       | 主动下线上线注册中心的服务,配合CI/CD发版业务用                                      |
-| `GET /gateway-api-to-file/{gateway-name}` | text/plain | 读取网关admin api转换成文件用于备份或者db-less模式                               |
+| 路径                                               | 返回值        | 用途                                                     |
+|--------------------------------------------------|:-----------|:-------------------------------------------------------|
+| `GET /`                                          | `OK`       | 服务是否启动                                                 |
+| `GET /-/reload`                                  | `OK`       | 重新加载配置文件，加载成功返回OK，主要是cicd场景或者k8s的configmap reload 场景使用 |
+| `GET /health`                                    | JSON       | 判断服务是否健康，可以配合k8s等容器服务的健康检查使用                           |
+| `PUT /discovery/{discovery-name}`                | `OK`       | 主动下线上线注册中心的服务,配合CI/CD发版业务用                             |
+| `GET /gateway-api-to-file/{gateway-name}`        | text/plain | 读取网关admin api转换成文件用于备份或者db-less模式                      |
+| `POST /migrate/{gateway-name}/to/{gateway-name}` | JSON       | 将网关数据迁移(目前仅支持apisix)                                   |
 
 `GET /health` 的返回值
 
@@ -235,11 +240,13 @@ body入参
 }
 ```
 
-`GET /gateway-api-to-file/{gateway-name}` 中的gateway-name是网关的名字，如果不存在，则返回 `Not Found`，http status code 是404
+`GET /gateway-api-to-file/{gateway-name}` 中的gateway-name是网关的名字，如果不存在，则返回 `Not Found`，http status code
+是404
 
 如果服务报错，resp body 会返回空字符串，header 中的 `syncer-err-msg` 会返回具体原因 http status code 是500
 
-如果正常，resp body 会返回转换后的文本内容，`syncer-file-location` 会返回syncer服务端的路径(一般是系统临时目录+文件名，例如`/tmp/apisix.yaml`)， http status
+如果正常，resp body 会返回转换后的文本内容，`syncer-file-location` 会返回syncer服务端的路径(
+一般是系统临时目录+文件名，例如`/tmp/apisix.yaml`)， http status
 code是200
 
 **注意**
@@ -263,10 +270,19 @@ Copyright (C) 2017-, by AnJia <anjia0532@gmail.com>.
 
 All rights reserved.
 
-Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the
+following conditions are met:
 
-* Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+* Redistributions of source code must retain the above copyright notice, this list of conditions and the following
+  disclaimer.
 
-* Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+* Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following
+  disclaimer in the documentation and/or other materials provided with the distribution.
 
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
+INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.

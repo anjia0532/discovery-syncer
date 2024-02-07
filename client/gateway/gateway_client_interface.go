@@ -23,4 +23,6 @@ type GatewayClient interface {
 	SyncInstances(name string, tpl string, discoveryInstances []model.Instance, diffIns []model.Instance) error
 
 	FetchAdminApiToFile() (string, string, error)
+
+	MigrateTo(gateway GatewayClient) error
 }

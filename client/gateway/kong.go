@@ -176,6 +176,9 @@ func (kongClient *KongClient) SyncInstances(name string, tpl string, discoveryIn
 }
 
 func (kongClient *KongClient) FetchAdminApiToFile() (string, string, error) {
-
 	return "", "", errors.New("Unrealized")
+}
+
+func (kongClient *KongClient) MigrateTo(gateway GatewayClient) error {
+	return errors.New("Unrealized")
 }

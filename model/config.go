@@ -17,6 +17,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"time"
 )
 
 var (
@@ -27,13 +28,19 @@ var (
 
 type DiscoveryType string
 type GatewayType string
+type healthCheckType string
+type ApisixAdminApiVersion string
 
 const (
 	NACOS_DISCOVERY  DiscoveryType = "nacos"
 	EUREKA_DISCOVERY DiscoveryType = "eureka"
 
-	APISIX_GATEWAY GatewayType = "apisix"
-	KONG_GATEWAY   GatewayType = "kong"
+	APISIX_GATEWAY GatewayType           = "apisix"
+	KONG_GATEWAY   GatewayType           = "kong"
+	HTTP_TYPE      healthCheckType       = "http"
+	HTTPS_TYPE     healthCheckType       = "https"
+	APISIX_V2      ApisixAdminApiVersion = "v2"
+	APISIX_V3      ApisixAdminApiVersion = "v3"
 )
 
 type Config struct {

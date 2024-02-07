@@ -21,6 +21,7 @@ import (
 	"github.com/anjia0532/apisix-discovery-syncer/model"
 	go_logger "github.com/phachon/go-logger"
 	"regexp"
+	"strings"
 	"time"
 )
 
@@ -53,7 +54,13 @@ func createGatewayClient(gatewayMap map[string]model.Gateway,
 	for name, server := range gatewayMap {
 		switch server.Type {
 		case model.APISIX_GATEWAY:
-			client = &gateway.ApisixClient{Config: server, Logger: logger}
+			v, ok := server.Config["version"]
+			ApiVersion := model.APISIX_V2
+			if ok && strings.ToLower(v) == string(model.APISIX_V3) {
+				ApiVersion = model.APISIX_V3
+			}
+			client = &gateway.ApisixClient{Config: server, Logger: logger, ApiVersion: ApiVersion}
+
 			break
 		case model.KONG_GATEWAY:
 			client = &gateway.KongClient{Config: server, Logger: logger}

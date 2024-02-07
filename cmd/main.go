@@ -29,6 +29,7 @@ import (
 	"os"
 	"os/signal"
 	"regexp"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -60,6 +61,7 @@ func main() {
 	r.HandleFunc("/health", healthHandler)
 	r.HandleFunc("/discovery/{discovery-name}", discoveryHandler)
 	r.HandleFunc("/gateway-api-to-file/{gateway-name}", gatewayAdminApiToFile)
+	r.HandleFunc("/migrate/{origin-gateway-name}/to/{target-gateway-name}", migrateApisixGateway)
 
 	if err == nil {
 		// default is false
@@ -139,6 +141,38 @@ func healthHandler(w http.ResponseWriter, _ *http.Request) {
 	_, _ = fmt.Fprintf(w, "%s", data)
 }
 
+func migrateApisixGateway(writer http.ResponseWriter, request *http.Request) {
+	vars := mux.Vars(request)
+
+	originGatewayName := vars["origin-gateway-name"]
+	targetGatewayName := vars["target-gateway-name"]
+	if strings.EqualFold(targetGatewayName, originGatewayName) {
+		writer.WriteHeader(http.StatusBadRequest)
+		_, _ = fmt.Fprintf(writer, "Origin Gateway and Target Gateway are the same")
+		return
+	}
+	originGateway, ok := client.GetGatewayClient(originGatewayName)
+
+	if !ok {
+		writer.WriteHeader(http.StatusNotFound)
+		_, _ = fmt.Fprintf(writer, "Origin Gateway Not Found")
+		return
+	}
+	targetGateway, ok := client.GetGatewayClient(targetGatewayName)
+
+	if !ok {
+		writer.WriteHeader(http.StatusNotFound)
+		_, _ = fmt.Fprintf(writer, "Target Gateway Not Found")
+		return
+	}
+	err := originGateway.MigrateTo(targetGateway)
+
+	if err != nil {
+		_, _ = fmt.Fprintf(writer, err.Error())
+	} else {
+		_, _ = fmt.Fprintf(writer, "OK")
+	}
+}
 func gatewayAdminApiToFile(writer http.ResponseWriter, request *http.Request) {
 	vars := mux.Vars(request)
 	gatewayName := vars["gateway-name"]
@@ -149,7 +183,7 @@ func gatewayAdminApiToFile(writer http.ResponseWriter, request *http.Request) {
 		_, _ = fmt.Fprintf(writer, "Not Found")
 		return
 	}
-	writer.Header().Set("Content-Type", "text/plain")
+	writer.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	content, filePath, err := gateway.FetchAdminApiToFile()
 	if err != nil {
 		writer.WriteHeader(http.StatusInternalServerError)
