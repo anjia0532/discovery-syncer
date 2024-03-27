@@ -114,7 +114,23 @@ func (apisixClient *ApisixClient) GetServiceAllInstances(upstreamName string) ([
 			continue
 		}
 		for _, n := range upstream.Nodes {
-			instance := model.Instance{Weight: float32(n["weight"].(float64)), Ip: n["host"].(string), Port: n["port"].(int)}
+			instance := model.Instance{Ip: n["host"].(string)}
+			port, ok := n["port"].(float64)
+			if !ok {
+				portInt, ok := n["port"].(int)
+				if ok {
+					port = float64(portInt)
+				}
+			}
+			instance.Port = int(port)
+			weight, ok := n["weight"].(float64)
+			if !ok {
+				weightInt, ok := n["weight"].(int)
+				if ok {
+					weight = float64(weightInt)
+				}
+			}
+			instance.Weight = float32(weight)
 			instances = append(instances, instance)
 		}
 	}
