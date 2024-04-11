@@ -4,6 +4,9 @@
 等网关，后续将支持自定义插件，支持用户自己用golang实现支持类似携程阿波罗注册中心，etcd注册中心，consul注册中心等插件，以及spring
 gateway等网关插件的高扩展性
 
+## 注意
+本项目不再维护，后续功能改进修复，将改为 python 重写的项目 <https://github.com/anjia0532/discovery-syncer-python>
+
 ## 快速开始
 
 ### 通过二进制运行
